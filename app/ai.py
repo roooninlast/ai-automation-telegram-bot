@@ -1,4 +1,3 @@
-# app/ai.py
 import os, json, httpx
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -17,15 +16,13 @@ SYS_JSONER = (
 )
 
 async def _chat(system: str, user: str) -> str:
-    # لو ما فيه مفتاح أصلاً، خلّي الاستدعاء يفشل لنفعل fallback في الأعلى
     if not OPENROUTER_API_KEY:
         raise RuntimeError("NO_OPENROUTER_KEY")
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        # تحسينات موصى بها مع OpenRouter:
-        "HTTP-Referer": os.getenv("PUBLIC_APP_URL", ""),   # مثلاً دومين Render
+        "HTTP-Referer": os.getenv("PUBLIC_APP_URL", ""),
         "X-Title": "AI Automation Telegram Bot",
     }
     body = {
@@ -38,7 +35,6 @@ async def _chat(system: str, user: str) -> str:
     }
     async with httpx.AsyncClient(timeout=90) as client:
         resp = await client.post(OPENROUTER_URL, headers=headers, json=body)
-        # أي 4xx/5xx سيرمي استثناء هنا
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"]
@@ -46,12 +42,11 @@ async def _chat(system: str, user: str) -> str:
 async def plan_workflow_with_ai(user_prompt: str) -> str:
     try:
         return await _chat(SYS_PLANNER, user_prompt)
-    except Exception:
-        # خطة بسيطة تكفي لتوليد JSON بديل
+    except Exception as e:
+        print("[AI] planner fallback due to:", repr(e))
         return f"Trigger: decide based on prompt.\nSteps: parse → fetch/process → output.\nUserPrompt: {user_prompt}"
 
 async def draft_n8n_json_with_ai(plan: str) -> str:
-    # JSON بديل دائمًا جاهز لو فشل أي شيء
     fallback = {
         "name": "Webhook → Google Sheets (Sample)",
         "nodes": [
@@ -82,5 +77,7 @@ async def draft_n8n_json_with_ai(plan: str) -> str:
     }
     try:
         return await _chat(SYS_JSONER, plan)
-    except Exception:
+    except Exception as e:
+        print("[AI] json fallback due to:", repr(e))
         return json.dumps(fallback)
+        

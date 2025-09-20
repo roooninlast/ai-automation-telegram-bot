@@ -7,10 +7,10 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
+        sync: false        # لازم تدخلو يدوي من UI في Render
       - key: OPENROUTER_API_KEY
-        sync: false
+        sync: false        # نفس الشيء
       - key: OPENROUTER_MODEL
         value: openai/gpt-4o-mini
       - key: WEBHOOK_SECRET
-        generateValue: true
+        value: my_secret_123   # هنا ثبّتناه بدل generateValue

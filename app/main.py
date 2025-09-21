@@ -5,12 +5,12 @@ from fastapi.staticfiles import StaticFiles
 import httpx
 from datetime import datetime
 
-# تحسين إعدادات AI
+# إعدادات الذكاء الاصطناعي
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")  # نموذج أفضل
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# تحسين الـ system prompts
+# System prompts محسنة
 SYS_PLANNER = """You are an expert n8n workflow architect specializing in business automation.
 
 TASK: Analyze the user's automation request and create a detailed, actionable plan.
@@ -48,20 +48,10 @@ REQUIREMENTS:
 6. Use environment variables for sensitive data: {{$env.API_KEY}}
 7. Include proper positioning for visual layout
 
-COMMON N8N NODES:
-- n8n-nodes-base.webhook (for HTTP triggers)
-- n8n-nodes-base.httpRequest (for API calls)
-- n8n-nodes-base.googleSheets (for Google Sheets)
-- n8n-nodes-base.gmail (for email)
-- n8n-nodes-base.slack (for Slack)
-- n8n-nodes-base.code (for JavaScript processing)
-- n8n-nodes-base.if (for conditions)
-- n8n-nodes-base.set (for data manipulation)
-
 OUTPUT: Valid n8n JSON only, no explanation."""
 
 async def _chat(system: str, user: str, debug_context: str = "") -> str:
-    """محسن مع debugging شامل"""
+    """دالة محسنة للتواصل مع OpenRouter"""
     if not OPENROUTER_API_KEY:
         print(f"[ERROR] {debug_context}: OPENROUTER_API_KEY not set!")
         raise RuntimeError("NO_OPENROUTER_KEY")
@@ -111,21 +101,10 @@ async def _chat(system: str, user: str, debug_context: str = "") -> str:
             print(f"[SUCCESS] {debug_context}: Got response, length: {len(content)} chars")
             print(f"[DEBUG] Response preview: {content[:200]}...")
             
-            # تحقق من استخدام الرصيد
-            if "usage" in data:
-                usage = data["usage"]
-                print(f"[INFO] Token usage - Prompt: {usage.get('prompt_tokens', 0)}, Completion: {usage.get('completion_tokens', 0)}")
-            
             return content
             
-    except httpx.TimeoutException:
-        print(f"[ERROR] {debug_context}: Request timeout after 120s")
-        raise RuntimeError("API request timeout")
-    except httpx.HTTPStatusError as e:
-        print(f"[ERROR] {debug_context}: HTTP error: {e}")
-        raise RuntimeError(f"API HTTP error: {e.response.status_code}")
     except Exception as e:
-        print(f"[ERROR] {debug_context}: Unexpected error: {type(e).__name__}: {e}")
+        print(f"[ERROR] {debug_context}: API call failed: {str(e)}")
         raise RuntimeError(f"API call failed: {str(e)}")
 
 async def plan_workflow_with_ai(user_prompt: str) -> tuple[str, bool]:
@@ -133,7 +112,6 @@ async def plan_workflow_with_ai(user_prompt: str) -> tuple[str, bool]:
     try:
         print(f"[INFO] Planning workflow for prompt: {user_prompt[:100]}...")
         
-        # إضافة سياق إضافي للطلب
         enhanced_prompt = f"""
 USER REQUEST: {user_prompt}
 
@@ -149,7 +127,7 @@ Create a step-by-step technical plan that a developer can follow to build this i
 """
         
         result = await _chat(SYS_PLANNER, enhanced_prompt, "PLANNER")
-        return result, True  # True = من الذكاء الاصطناعي
+        return result, True
         
     except Exception as e:
         print(f"[WARNING] Planning fallback due to: {repr(e)}")
@@ -166,12 +144,11 @@ Create a step-by-step technical plan that a developer can follow to build this i
 
 **Note:** This is a basic template. For detailed workflow, ensure OPENROUTER_API_KEY is configured properly."""
         
-        return fallback, False  # False = fallback
+        return fallback, False
 
 async def draft_n8n_json_with_ai(plan: str) -> tuple[str, bool]:
     """إنشاء JSON مع تتبع المصدر"""
     
-    # JSON احتياطي محسن
     fallback_json = {
         "name": "AI Generated Workflow",
         "nodes": [
@@ -194,7 +171,7 @@ async def draft_n8n_json_with_ai(plan: str) -> tuple[str, bool]:
                 "typeVersion": 1, 
                 "position": [460, 300],
                 "parameters": {
-                    "jsCode": "// Process incoming data\nconst inputData = $input.all();\nconst processedData = inputData.map(item => {\n  return {\n    ...item.json,\n    processed_at: new Date().toISOString(),\n    status: 'processed'\n  };\n});\n\nreturn processedData;"
+                    "jsCode": "const inputData = $input.all(); const processedData = inputData.map(item => ({ ...item.json, processed_at: new Date().toISOString(), status: 'processed' })); return processedData;"
                 }
             },
             {
@@ -204,7 +181,7 @@ async def draft_n8n_json_with_ai(plan: str) -> tuple[str, bool]:
                 "typeVersion": 1,
                 "position": [680, 300],
                 "parameters": {
-                    "responseBody": "{\\"status\\": \\"success\\", \\"message\\": \\"Automation completed\\"}"
+                    "responseBody": "{\"status\": \"success\", \"message\": \"Automation completed\"}"
                 }
             }
         ],
@@ -248,22 +225,9 @@ Generate ONLY valid JSON, no explanations.
             json.loads(result)
             print("[SUCCESS] Generated valid JSON from AI")
             return result, True
-        except json.JSONDecodeError as e:
-            print(f"[ERROR] AI generated invalid JSON: {e}")
-            # محاولة تنظيف JSON
-            cleaned = result.strip()
-            if cleaned.startswith('```json'):
-                cleaned = cleaned[7:]
-            if cleaned.endswith('```'):
-                cleaned = cleaned[:-3]
-            
-            try:
-                json.loads(cleaned)
-                print("[SUCCESS] Fixed JSON formatting")
-                return cleaned, True
-            except:
-                print("[ERROR] Could not fix JSON, using fallback")
-                return json.dumps(fallback_json, indent=2), False
+        except json.JSONDecodeError:
+            print("[ERROR] AI generated invalid JSON, using fallback")
+            return json.dumps(fallback_json, indent=2), False
         
     except Exception as e:
         print(f"[WARNING] JSON generation fallback due to: {repr(e)}")
@@ -275,19 +239,17 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "change_me")
 WEBHOOK_PATH = f"/webhook/{WEBHOOK_SECRET}"
 
-# إرسال رسالة عبر Telegram API
 async def send_message(chat_id: int, text: str, parse_mode: str = "Markdown"):
     """إرسال رسالة إلى المستخدم"""
     if not TELEGRAM_BOT_TOKEN:
         print("[ERROR] TELEGRAM_BOT_TOKEN not set")
         return
     
-    # تقسيم الرسائل الطويلة
     max_length = 4000
     if len(text) > max_length:
         parts = [text[i:i+max_length] for i in range(0, len(text), max_length)]
         for i, part in enumerate(parts):
-            await asyncio.sleep(0.5)  # تأخير بسيط بين الرسائل
+            await asyncio.sleep(0.5)
             await _send_single_message(chat_id, f"({i+1}/{len(parts)})\n{part}", parse_mode)
     else:
         await _send_single_message(chat_id, text, parse_mode)
@@ -313,16 +275,13 @@ async def _send_single_message(chat_id: int, text: str, parse_mode: str):
         print(f"[ERROR] Failed to send message: {e}")
         return None
 
-# معالج الرسائل النصية المحسن
 async def handle_text_message(chat_id: int, text: str):
-    """معالج الرسائل النصية - ينشئ workflow من الوصف"""
+    """معالج الرسائل النصية"""
     try:
         print(f"[INFO] Processing automation request: {text[:100]}...")
         
-        # إرسال رسالة "جاري المعالجة"
         await send_message(chat_id, "⏳ جاري تحليل طلبك وإنشاء الـ workflow...")
         
-        # تحقق من إعداد API
         if not OPENROUTER_API_KEY:
             await send_message(chat_id, 
                 "❌ **خطأ في الإعداد**\n\n"
@@ -356,7 +315,7 @@ async def handle_text_message(chat_id: int, text: str):
             "4. اضبط متغيرات البيئة والاتصالات المطلوبة\n"
             "5. اختبر الـ workflow قبل التفعيل\n"
             "6. فعّل الـ workflow\n\n"
-            f"**حالة AI:** {'✅ متصل' if ai_generated_plan and ai_generated_json else '❌ غير متوفر (استخدام Templates)'}"
+            f"**حالة AI:** {'✅ متصل' if ai_generated_plan and ai_generated_json else '❌ غير متوفر'}"
         )
         await send_message(chat_id, instructions)
         
@@ -368,12 +327,10 @@ async def handle_text_message(chat_id: int, text: str):
             f"**الحلول المحتملة:**\n"
             f"• تحقق من صحة OPENROUTER_API_KEY\n"
             f"• تحقق من الرصيد في OpenRouter\n"
-            f"• حاول مرة أخرى بعد دقائق قليلة\n"
-            f"• تأكد من الاتصال بالإنترنت"
+            f"• حاول مرة أخرى بعد دقائق قليلة"
         )
         await send_message(chat_id, error_msg)
 
-# معالج التحديثات الرئيسي
 async def handle_update(update: dict):
     """معالج التحديثات من Telegram"""
     try:
@@ -396,13 +353,11 @@ async def handle_update(update: dict):
                     "**أمثلة جيدة:**\n"
                     "• \"عندما يملأ شخص نموذج الاتصال على موقعي، أريد حفظ بياناته في Google Sheets وإرسال رسالة ترحيب تلقائية عبر Gmail\"\n\n"
                     "• \"عند إضافة منتج جديد في WooCommerce، أريد إرسال إشعار في قناة Slack المحددة مع تفاصيل المنتج\"\n\n"
-                    "• \"كل يوم في الساعة 9 صباحاً، أريد جلب التقارير من Google Analytics وإرسالها عبر البريد الإلكتروني للفريق\"\n\n"
                     f"**حالة AI:** {'✅ متصل' if OPENROUTER_API_KEY else '❌ غير متوفر'}"
                 )
                 await send_message(chat_id, welcome_msg)
                 
             elif text.startswith("/test"):
-                # اختبار الاتصال بـ OpenRouter
                 await send_message(chat_id, "🔍 جاري اختبار الاتصال بـ OpenRouter...")
                 try:
                     test_result, ai_used = await plan_workflow_with_ai("Test connection")
@@ -415,20 +370,17 @@ async def handle_update(update: dict):
                     
             elif text.startswith("/help"):
                 help_msg = (
-                    "📚 **دليل الاستخدام المفصل:**\n\n"
-                    "**1. كيفية كتابة طلب جيد:**\n"
+                    "📚 **دليل الاستخدام:**\n\n"
+                    "**كيفية كتابة طلب جيد:**\n"
                     "• كن محدداً: اذكر التطبيقات/الخدمات بالاسم\n"
                     "• اذكر التوقيت: متى يحدث التشغيل؟\n"
                     "• اذكر البيانات: ما المعلومات المطلوبة؟\n"
                     "• اذكر الإجراء: ماذا يجب أن يحدث؟\n\n"
-                    "**2. أمثلة للطلبات:**\n"
-                    "✅ جيد: \"عند استلام إيميل في Gmail يحتوي على كلمة 'فاتورة'، استخرج المرفقات وارفعها على Google Drive في مجلد 'الفواتير'\"\n\n"
-                    "❌ غير واضح: \"أريد أتمتة للإيميلات\"\n\n"
-                    "**3. الأوامر المتوفرة:**\n"
+                    "**الأوامر:**\n"
                     "• `/start` - البداية\n"
                     "• `/help` - هذا الدليل\n"
-                    "• `/test` - اختبار الاتصال بالذكاء الاصطناعي\n"
-                    "• `/status` - حالة البوت والإعدادات"
+                    "• `/test` - اختبار الذكاء الاصطناعي\n"
+                    "• `/status` - حالة البوت"
                 )
                 await send_message(chat_id, help_msg)
                 
@@ -438,20 +390,13 @@ async def handle_update(update: dict):
                     f"**OpenRouter API:** {'✅ مُعرف' if OPENROUTER_API_KEY else '❌ غير مُعرف'}\n"
                     f"**النموذج:** {OPENROUTER_MODEL}\n"
                     f"**Webhook:** {'✅ نشط' if TELEGRAM_BOT_TOKEN else '❌ غير مُعرف'}\n"
-                    f"**URL:** {os.getenv('RENDER_EXTERNAL_URL', 'غير محدد')}\n\n"
-                    "**للحصول على OpenRouter API Key:**\n"
-                    "1. اذهب إلى https://openrouter.ai\n"
-                    "2. سجل حساب جديد\n"
-                    "3. اذهب إلى API Keys\n"
-                    "4. أنشئ مفتاح جديد\n"
-                    "5. اضبطه في متغيرات البيئة"
+                    f"**URL:** {os.getenv('RENDER_EXTERNAL_URL', 'غير محدد')}"
                 )
                 await send_message(chat_id, status_msg)
                 
             elif text.startswith("/"):
                 await send_message(chat_id, "❓ أمر غير معروف. أرسل `/help` للمساعدة.")
             else:
-                # معالجة الطلب
                 await handle_text_message(chat_id, text)
         else:
             await send_message(chat_id, "📝 أرسل لي نصاً يصف عملية الأتمتة المطلوبة بالتفصيل")
@@ -473,10 +418,9 @@ async def root():
 async def telegram_webhook(request: Request):
     try:
         update = await request.json()
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # معالجة التحديث
     try:
         asyncio.create_task(handle_update(update))
     except Exception as e:
@@ -484,7 +428,6 @@ async def telegram_webhook(request: Request):
     
     return JSONResponse({"ok": True})
 
-# إعداد الـ webhook عند بدء التشغيل
 @app.on_event("startup")
 async def set_webhook():
     """إعداد webhook مع Telegram"""
@@ -538,7 +481,6 @@ async def bot_info():
     except Exception as e:
         return {"error": str(e)}
 
-# إعداد الملفات الثابتة
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public")
 if os.path.isdir(static_dir):
     app.mount("/docs", StaticFiles(directory=static_dir, html=True), name="docs")

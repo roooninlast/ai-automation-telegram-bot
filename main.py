@@ -8,7 +8,7 @@ from io import BytesIO
 
 # استيراد نظام AI الجديد  
 try:
-    from app.ai import (
+    from ai import (
         plan_workflow_with_ai,
         draft_n8n_json_with_ai, 
         test_gemini_connection,

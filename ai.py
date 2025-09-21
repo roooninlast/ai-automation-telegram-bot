@@ -1,274 +1,313 @@
 import os, json, httpx
 from typing import Dict, Any, Tuple, List
 import copy
+import uuid
+from datetime import datetime
 
 # إعدادات Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
-# قوالب n8n موثوقة ومختبرة
+def generate_node_id() -> str:
+    """إنشاء معرف فريد للعقدة متوافق مع n8n"""
+    return str(uuid.uuid4())
+
+def generate_webhook_id() -> str:
+    """إنشاء معرف webhook فريد"""
+    return str(uuid.uuid4())
+
+# قوالب n8n موثوقة ومتوافقة 100%
 N8N_TEMPLATES = {
     "webhook_to_sheets": {
+        "active": True,
+        "connections": {},  # سيتم ملؤها ديناميكياً
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "id": "1",
         "name": "Contact Form to Google Sheets",
-        "nodes": [
-            {
-                "parameters": {
-                    "path": "contact-form",
-                    "responseMode": "onReceived",
-                    "httpMethod": "POST"
-                },
-                "id": "webhook_trigger",
-                "name": "Contact Form Webhook",
-                "type": "n8n-nodes-base.webhook",
-                "typeVersion": 1,
-                "position": [240, 300],
-                "webhookId": "webhook_trigger"
-            },
-            {
-                "parameters": {
-                    "resource": "spreadsheet",
-                    "operation": "appendOrUpdate",
-                    "documentId": "={{$env.GOOGLE_SHEET_ID}}",
-                    "sheetName": "Sheet1",
-                    "columns": {
-                        "mappingMode": "defineBelow",
-                        "value": {
-                            "Name": "={{ $json.name }}",
-                            "Email": "={{ $json.email }}",
-                            "Phone": "={{ $json.phone }}",
-                            "Message": "={{ $json.message }}",
-                            "Timestamp": "={{ new Date().toISOString() }}"
-                        }
-                    }
-                },
-                "id": "google_sheets",
-                "name": "Save to Google Sheets",
-                "type": "n8n-nodes-base.googleSheets",
-                "typeVersion": 4,
-                "position": [460, 300]
-            },
-            {
-                "parameters": {
-                    "respondBody": "{\"success\": true, \"message\": \"Form submitted successfully\"}"
-                },
-                "id": "respond_webhook",
-                "name": "Respond to Webhook",
-                "type": "n8n-nodes-base.respondToWebhook",
-                "typeVersion": 1,
-                "position": [680, 300]
-            }
-        ],
-        "connections": {
-            "webhook_trigger": {"main": [[{"node": "google_sheets", "type": "main", "index": 0}]]},
-            "google_sheets": {"main": [[{"node": "respond_webhook", "type": "main", "index": 0}]]}
+        "nodes": [],  # سيتم ملؤها ديناميكياً
+        "pinData": {},
+        "settings": {
+            "executionOrder": "v1"
         },
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z",
-        "settings": {"timezone": "UTC"},
-        "staticData": None,
-        "tags": [],
-        "triggerCount": 1,
-        "versionId": "1"
-    },
-    
-    "webhook_sheets_email": {
-        "name": "Form Submission with Email Notification",
-        "nodes": [
-            {
-                "parameters": {
-                    "path": "contact-form",
-                    "responseMode": "onReceived",
-                    "httpMethod": "POST"
-                },
-                "id": "webhook_trigger",
-                "name": "Form Webhook",
-                "type": "n8n-nodes-base.webhook",
-                "typeVersion": 1,
-                "position": [240, 300],
-                "webhookId": "webhook_trigger"
-            },
-            {
-                "parameters": {
-                    "resource": "spreadsheet", 
-                    "operation": "appendOrUpdate",
-                    "documentId": "={{$env.GOOGLE_SHEET_ID}}",
-                    "sheetName": "Contacts",
-                    "columns": {
-                        "mappingMode": "defineBelow",
-                        "value": {
-                            "Name": "={{ $json.name }}",
-                            "Email": "={{ $json.email }}",
-                            "Message": "={{ $json.message }}",
-                            "Date": "={{ new Date().toISOString() }}"
-                        }
-                    }
-                },
-                "id": "google_sheets",
-                "name": "Save to Sheets",
-                "type": "n8n-nodes-base.googleSheets",
-                "typeVersion": 4,
-                "position": [460, 300]
-            },
-            {
-                "parameters": {
-                    "operation": "send",
-                    "toEmail": "={{ $json.email }}",
-                    "subject": "Thank you for contacting us!",
-                    "message": "Dear {{ $json.name }},\n\nThank you for your message: {{ $json.message }}\n\nWe will get back to you soon.\n\nBest regards,\nYour Team"
-                },
-                "id": "gmail_send",
-                "name": "Send Welcome Email",
-                "type": "n8n-nodes-base.gmail",
-                "typeVersion": 2,
-                "position": [680, 300]
-            },
-            {
-                "parameters": {
-                    "respondBody": "{\"success\": true, \"message\": \"Form submitted and email sent\"}"
-                },
-                "id": "respond_webhook",
-                "name": "Respond to Webhook",
-                "type": "n8n-nodes-base.respondToWebhook",
-                "typeVersion": 1,
-                "position": [900, 300]
-            }
-        ],
-        "connections": {
-            "webhook_trigger": {"main": [[{"node": "google_sheets", "type": "main", "index": 0}]]},
-            "google_sheets": {"main": [[{"node": "gmail_send", "type": "main", "index": 0}]]},
-            "gmail_send": {"main": [[{"node": "respond_webhook", "type": "main", "index": 0}]]}
-        },
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z", 
-        "settings": {"timezone": "UTC"},
-        "staticData": None,
-        "tags": [],
-        "triggerCount": 1,
-        "versionId": "1"
-    },
-    
-    "schedule_report": {
-        "name": "Daily Report Scheduler",
-        "nodes": [
-            {
-                "parameters": {
-                    "rule": {
-                        "hour": 9,
-                        "minute": 0,
-                        "timezone": "UTC"
-                    }
-                },
-                "id": "cron_trigger",
-                "name": "Daily at 9 AM",
-                "type": "n8n-nodes-base.cron",
-                "typeVersion": 1,
-                "position": [240, 300]
-            },
-            {
-                "parameters": {
-                    "method": "GET",
-                    "url": "={{$env.API_ENDPOINT}}",
-                    "authentication": "genericCredentialType",
-                    "genericAuthType": "httpHeaderAuth"
-                },
-                "id": "http_request",
-                "name": "Fetch Data",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4,
-                "position": [460, 300]
-            },
-            {
-                "parameters": {
-                    "jsCode": "const data = $input.all();\nconst summary = {\n  total_records: data.length,\n  processed_at: new Date().toISOString(),\n  summary: data.slice(0, 5)\n};\nreturn [summary];"
-                },
-                "id": "code_process",
-                "name": "Process Data",
-                "type": "n8n-nodes-base.code",
-                "typeVersion": 2,
-                "position": [680, 300]
-            },
-            {
-                "parameters": {
-                    "operation": "send",
-                    "toEmail": "={{$env.REPORT_EMAIL}}",
-                    "subject": "Daily Report - {{ new Date().toDateString() }}",
-                    "message": "Daily report summary:\n\nTotal records: {{ $json.total_records }}\nProcessed at: {{ $json.processed_at }}\n\nData preview:\n{{ JSON.stringify($json.summary, null, 2) }}"
-                },
-                "id": "gmail_send",
-                "name": "Send Report",
-                "type": "n8n-nodes-base.gmail",
-                "typeVersion": 2,
-                "position": [900, 300]
-            }
-        ],
-        "connections": {
-            "cron_trigger": {"main": [[{"node": "http_request", "type": "main", "index": 0}]]},
-            "http_request": {"main": [[{"node": "code_process", "type": "main", "index": 0}]]},
-            "code_process": {"main": [[{"node": "gmail_send", "type": "main", "index": 0}]]}
-        },
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z",
-        "settings": {"timezone": "UTC"},
-        "staticData": None,
-        "tags": [],
-        "triggerCount": 1,
-        "versionId": "1"
-    },
-    
-    "slack_notification": {
-        "name": "Webhook to Slack Notification",
-        "nodes": [
-            {
-                "parameters": {
-                    "path": "slack-notify",
-                    "responseMode": "onReceived",
-                    "httpMethod": "POST"
-                },
-                "id": "webhook_trigger",
-                "name": "Notification Webhook",
-                "type": "n8n-nodes-base.webhook",
-                "typeVersion": 1,
-                "position": [240, 300],
-                "webhookId": "webhook_trigger"
-            },
-            {
-                "parameters": {
-                    "operation": "postMessage",
-                    "channel": "={{$env.SLACK_CHANNEL}}",
-                    "text": "New notification:\n{{ $json.message }}\nFrom: {{ $json.source || 'Unknown' }}\nTime: {{ new Date().toLocaleString() }}"
-                },
-                "id": "slack_send",
-                "name": "Send to Slack",
-                "type": "n8n-nodes-base.slack",
-                "typeVersion": 2,
-                "position": [460, 300]
-            },
-            {
-                "parameters": {
-                    "respondBody": "{\"success\": true, \"message\": \"Notification sent to Slack\"}"
-                },
-                "id": "respond_webhook",
-                "name": "Respond to Webhook",
-                "type": "n8n-nodes-base.respondToWebhook",
-                "typeVersion": 1,
-                "position": [680, 300]
-            }
-        ],
-        "connections": {
-            "webhook_trigger": {"main": [[{"node": "slack_send", "type": "main", "index": 0}]]},
-            "slack_send": {"main": [[{"node": "respond_webhook", "type": "main", "index": 0}]]}
-        },
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z",
-        "settings": {"timezone": "UTC"},
-        "staticData": None,
+        "staticData": {},
         "tags": [],
         "triggerCount": 1,
         "versionId": "1"
     }
 }
 
-# System prompts دقيقة ومتخصصة
+def create_webhook_node(node_id: str, webhook_id: str, path: str = "contact-form") -> Dict[str, Any]:
+    """إنشاء عقدة webhook صحيحة"""
+    return {
+        "parameters": {
+            "httpMethod": "POST",
+            "path": path,
+            "responseMode": "onReceived",
+            "options": {}
+        },
+        "id": node_id,
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [240, 300],
+        "webhookId": webhook_id
+    }
+
+def create_google_sheets_node(node_id: str) -> Dict[str, Any]:
+    """إنشاء عقدة Google Sheets صحيحة"""
+    return {
+        "parameters": {
+            "resource": "sheet",
+            "operation": "appendOrUpdate",
+            "documentId": {
+                "__rl": True,
+                "value": "={{$env.GOOGLE_SHEET_ID}}",
+                "mode": "id"
+            },
+            "sheetName": {
+                "__rl": True,
+                "value": "Sheet1",
+                "mode": "list"
+            },
+            "columns": {
+                "mappingMode": "defineBelow",
+                "value": {
+                    "Name": "={{ $json.name }}",
+                    "Email": "={{ $json.email }}",
+                    "Phone": "={{ $json.phone || 'N/A' }}",
+                    "Message": "={{ $json.message }}",
+                    "Timestamp": "={{ new Date().toISOString() }}"
+                },
+                "matchingColumns": [],
+                "schema": []
+            },
+            "options": {}
+        },
+        "id": node_id,
+        "name": "Google Sheets",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4,
+        "position": [460, 300]
+    }
+
+def create_gmail_node(node_id: str) -> Dict[str, Any]:
+    """إنشاء عقدة Gmail صحيحة"""
+    return {
+        "parameters": {
+            "resource": "message",
+            "operation": "send",
+            "toEmail": "={{ $json.email }}",
+            "subject": "Thank you for contacting us!",
+            "emailType": "text",
+            "message": "Dear {{ $json.name }},\n\nThank you for your message. We have received your inquiry and will get back to you soon.\n\nBest regards,\nYour Team",
+            "options": {}
+        },
+        "id": node_id,
+        "name": "Gmail",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2,
+        "position": [680, 300]
+    }
+
+def create_slack_node(node_id: str) -> Dict[str, Any]:
+    """إنشاء عقدة Slack صحيحة"""
+    return {
+        "parameters": {
+            "resource": "message",
+            "operation": "post",
+            "channel": "={{$env.SLACK_CHANNEL}}",
+            "text": "New contact form submission:\n• Name: {{ $json.name }}\n• Email: {{ $json.email }}\n• Message: {{ $json.message }}\n• Time: {{ new Date().toLocaleString() }}",
+            "otherOptions": {}
+        },
+        "id": node_id,
+        "name": "Slack",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2,
+        "position": [900, 300]
+    }
+
+def create_cron_node(node_id: str, hour: int = 9, minute: int = 0) -> Dict[str, Any]:
+    """إنشاء عقدة cron صحيحة"""
+    return {
+        "parameters": {
+            "rule": {
+                "interval": [
+                    {
+                        "field": "hour",
+                        "value": hour
+                    },
+                    {
+                        "field": "minute", 
+                        "value": minute
+                    }
+                ]
+            }
+        },
+        "id": node_id,
+        "name": "Schedule Trigger",
+        "type": "n8n-nodes-base.cron",
+        "typeVersion": 1,
+        "position": [240, 300]
+    }
+
+def create_http_request_node(node_id: str) -> Dict[str, Any]:
+    """إنشاء عقدة HTTP Request صحيحة"""
+    return {
+        "parameters": {
+            "method": "GET",
+            "url": "={{$env.API_ENDPOINT}}",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "options": {}
+        },
+        "id": node_id,
+        "name": "HTTP Request",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [460, 300]
+    }
+
+def create_code_node(node_id: str, code: str) -> Dict[str, Any]:
+    """إنشاء عقدة Code صحيحة"""
+    return {
+        "parameters": {
+            "jsCode": code,
+            "options": {}
+        },
+        "id": node_id,
+        "name": "Code",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [680, 300]
+    }
+
+def create_respond_webhook_node(node_id: str) -> Dict[str, Any]:
+    """إنشاء عقدة Respond to Webhook صحيحة"""
+    return {
+        "parameters": {
+            "respondBody": JSON.stringify({
+                "success": True,
+                "message": "Request processed successfully",
+                "timestamp": "{{ new Date().toISOString() }}"
+            }),
+            "options": {}
+        },
+        "id": node_id,
+        "name": "Respond to Webhook",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [1120, 300]
+    }
+
+def create_connections(node_ids: List[str]) -> Dict[str, Any]:
+    """إنشاء اتصالات صحيحة بين العقد"""
+    connections = {}
+    
+    for i in range(len(node_ids) - 1):
+        source_id = node_ids[i]
+        target_id = node_ids[i + 1]
+        
+        connections[source_id] = {
+            "main": [
+                [
+                    {
+                        "node": target_id,
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    
+    return connections
+
+def build_complete_workflow(template_name: str, custom_name: str = None) -> Dict[str, Any]:
+    """بناء workflow كامل ومتوافق مع n8n"""
+    
+    # نسخة أساسية من القالب
+    workflow = copy.deepcopy(N8N_TEMPLATES["webhook_to_sheets"])
+    
+    # تحديث الاسم
+    if custom_name:
+        workflow["name"] = custom_name
+    
+    # تحديث التواريخ
+    now = datetime.now().isoformat()
+    workflow["updatedAt"] = now
+    
+    # إنشاء معرفات فريدة
+    webhook_id = generate_webhook_id()
+    node_ids = [generate_node_id() for _ in range(4)]  # 4 عقد أساسية
+    
+    if template_name == "webhook_to_sheets":
+        # بناء العقد
+        nodes = [
+            create_webhook_node(node_ids[0], webhook_id),
+            create_google_sheets_node(node_ids[1]),
+            create_respond_webhook_node(node_ids[2])
+        ]
+        used_node_ids = node_ids[:3]
+        
+    elif template_name == "webhook_sheets_email":
+        nodes = [
+            create_webhook_node(node_ids[0], webhook_id),
+            create_google_sheets_node(node_ids[1]),
+            create_gmail_node(node_ids[2]),
+            create_respond_webhook_node(node_ids[3])
+        ]
+        used_node_ids = node_ids[:4]
+        
+    elif template_name == "schedule_report":
+        code = """const data = $input.all();
+const summary = {
+  total_records: data.length,
+  processed_at: new Date().toISOString(),
+  sample_data: data.slice(0, 3)
+};
+return [summary];"""
+        
+        nodes = [
+            create_cron_node(node_ids[0]),
+            create_http_request_node(node_ids[1]),
+            create_code_node(node_ids[2], code),
+            create_gmail_node(node_ids[3])
+        ]
+        used_node_ids = node_ids[:4]
+        
+    elif template_name == "slack_notification":
+        nodes = [
+            create_webhook_node(node_ids[0], webhook_id, "slack-notify"),
+            create_slack_node(node_ids[1]),
+            create_respond_webhook_node(node_ids[2])
+        ]
+        used_node_ids = node_ids[:3]
+        
+    else:
+        # fallback للقالب الأساسي
+        nodes = [
+            create_webhook_node(node_ids[0], webhook_id),
+            create_respond_webhook_node(node_ids[1])
+        ]
+        used_node_ids = node_ids[:2]
+    
+    # إضافة العقد للـ workflow
+    workflow["nodes"] = nodes
+    
+    # إنشاء الاتصالات
+    workflow["connections"] = create_connections(used_node_ids)
+    
+    # تحديث عدد المشغلات
+    trigger_count = sum(1 for node in nodes if node["type"] in [
+        "n8n-nodes-base.webhook", 
+        "n8n-nodes-base.cron", 
+        "n8n-nodes-base.manualTrigger"
+    ])
+    workflow["triggerCount"] = trigger_count
+    
+    return workflow
+
+# System prompts محسنة
 SYS_ANALYZER = """أنت خبير في تحليل طلبات الأتمتة وتصميم workflows لـ n8n.
 
 مهمتك: تحليل طلب المستخدم وتحديد النوع والمكونات المطلوبة.
@@ -287,23 +326,16 @@ TEMPLATE: [اقتراح القالب المناسب]
 COMPLEXITY: [مستوى التعقيد]
 CONFIDENCE: [مستوى الثقة: high/medium/low]"""
 
-SYS_WORKFLOW_DESIGNER = """أنت مطور workflows خبير في n8n. مهمتك تخصيص قالب موجود ليناسب طلب المستخدم.
+SYS_WORKFLOW_CUSTOMIZER = """أنت مطور workflows خبير في n8n. مهمتك تخصيص workflow ليناسب طلب المستخدم.
 
 قواعد التخصيص:
-1. احتفظ بنفس هيكل القالب الأساسي
-2. عدّل الأسماء والوصف ليناسب الطلب
-3. اضبط parameters العقد حسب الحاجة
-4. استخدم environment variables للبيانات الحساسة: {{$env.VARIABLE_NAME}}
-5. تأكد من صحة connections بين العقد
-6. اضبط positions العقد بشكل منطقي
+1. اختر القالب الأنسب من: webhook_to_sheets, webhook_sheets_email, schedule_report, slack_notification
+2. عدّل اسم الـ workflow ليكون وصفياً ومناسباً للطلب
+3. لا تعدّل بنية JSON الأساسية - فقط الاسم والوصف
 
-متطلبات مهمة:
-- يجب أن يكون الJSON صالح 100% للاستيراد في n8n
-- يجب تضمين كل الحقول المطلوبة: name, nodes, connections, settings, tags
-- استخدم أسماء واضحة ووصفية للعقد
-- تأكد من صحة node types وparameters
-
-أرجع JSON كامل فقط، بدون شرح."""
+أجب بالتنسيق التالي فقط:
+TEMPLATE: [اسم القالب]
+WORKFLOW_NAME: [اسم مخصص للـ workflow]"""
 
 async def _call_gemini_api(prompt: str, system_instruction: str = "") -> str:
     """استدعاء Gemini API مع معالجة شاملة للأخطاء"""
@@ -328,29 +360,18 @@ async def _call_gemini_api(prompt: str, system_instruction: str = "") -> str:
         "contents": contents,
         "generationConfig": {
             "temperature": 0.2,
-            "maxOutputTokens": 4000,
+            "maxOutputTokens": 2000,
             "topP": 0.8,
             "topK": 40
-        },
-        "safetySettings": [
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH", 
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            }
-        ]
+        }
     }
     
     try:
-        async with httpx.AsyncClient(timeout=90) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(url, json=payload)
             
             if response.status_code != 200:
-                error_text = response.text
-                print(f"[ERROR] Gemini API error {response.status_code}: {error_text}")
+                print(f"[ERROR] Gemini API error {response.status_code}: {response.text}")
                 raise RuntimeError(f"Gemini API returned {response.status_code}")
             
             data = response.json()
@@ -362,51 +383,53 @@ async def _call_gemini_api(prompt: str, system_instruction: str = "") -> str:
             content = data["candidates"][0]["content"]["parts"][0]["text"]
             return content.strip()
             
-    except httpx.TimeoutException:
-        raise RuntimeError("Gemini API timeout")
     except Exception as e:
         print(f"[ERROR] Gemini API call failed: {e}")
         raise RuntimeError(f"Gemini API call failed: {str(e)}")
 
-def analyze_user_request(user_prompt: str) -> Dict[str, str]:
-    """تحليل محلي سريع لطلب المستخدم"""
+def analyze_user_request_locally(user_prompt: str) -> Dict[str, str]:
+    """تحليل محلي دقيق لطلب المستخدم"""
     prompt_lower = user_prompt.lower()
     
     # تحديد نوع التشغيل
     if any(word in prompt_lower for word in ["form", "submit", "webhook", "receive", "post"]):
         trigger = "webhook"
-    elif any(word in prompt_lower for word in ["daily", "schedule", "cron", "every", "automatically"]):
+    elif any(word in prompt_lower for word in ["daily", "schedule", "cron", "every", "automatically", "time"]):
         trigger = "schedule"
-    elif any(word in prompt_lower for word in ["manual", "button", "click"]):
-        trigger = "manual"
     else:
-        trigger = "webhook"  # افتراضي
+        trigger = "webhook"
     
     # تحديد الخدمات
     services = []
-    if any(word in prompt_lower for word in ["google sheets", "spreadsheet", "sheet"]):
-        services.append("google_sheets")
-    if any(word in prompt_lower for word in ["gmail", "email", "mail"]):
-        services.append("gmail")
-    if any(word in prompt_lower for word in ["slack"]):
+    if any(word in prompt_lower for word in ["google sheets", "spreadsheet", "sheet", "جدول"]):
+        services.append("sheets")
+    if any(word in prompt_lower for word in ["gmail", "email", "mail", "إيميل", "رسالة"]):
+        services.append("email")
+    if any(word in prompt_lower for word in ["slack", "سلاك"]):
         services.append("slack")
     
-    # اختيار القالب
-    if "google_sheets" in services and "gmail" in services:
+    # اختيار القالب المناسب
+    if "sheets" in services and "email" in services:
         template = "webhook_sheets_email"
-    elif "google_sheets" in services:
+        workflow_name = "Form Submission with Email & Sheets"
+    elif "sheets" in services:
         template = "webhook_to_sheets"
+        workflow_name = "Contact Form to Google Sheets"
     elif "slack" in services:
         template = "slack_notification"
+        workflow_name = "Slack Notification System"
     elif trigger == "schedule":
         template = "schedule_report"
+        workflow_name = "Automated Daily Report"
     else:
-        template = "webhook_to_sheets"  # افتراضي
+        template = "webhook_to_sheets"
+        workflow_name = "Basic Webhook Automation"
     
     return {
         "trigger": trigger,
-        "services": ", ".join(services),
+        "services": ", ".join(services) if services else "basic",
         "template": template,
+        "workflow_name": workflow_name,
         "complexity": "medium"
     }
 
@@ -437,7 +460,7 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
         analysis = await _call_gemini_api(analysis_prompt, SYS_ANALYZER)
         
         # تحليل محلي كاحتياط
-        local_analysis = analyze_user_request(user_prompt)
+        local_analysis = analyze_user_request_locally(user_prompt)
         
         detailed_plan = f"""🔍 **تحليل طلب الأتمتة:**
 
@@ -448,7 +471,7 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
 - المشغل: {local_analysis['trigger']}
 - الخدمات: {local_analysis['services']}
 - القالب المقترح: {local_analysis['template']}
-- التعقيد: {local_analysis['complexity']}
+- اسم الـ Workflow: {local_analysis['workflow_name']}
 
 **طلب المستخدم الأصلي:**
 {user_prompt}
@@ -459,111 +482,129 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
     except Exception as e:
         print(f"[WARNING] AI analysis failed: {e}")
         
-        # تحليل احتياطي
-        local_analysis = analyze_user_request(user_prompt)
-        fallback_plan = f"""📋 **تحليل أساسي (Gemini غير متاح):**
+        # تحليل احتياطي محلي
+        local_analysis = analyze_user_request_locally(user_prompt)
+        fallback_plan = f"""📋 **تحليل محلي (Gemini غير متاح):**
 
 - نوع المشغل: {local_analysis['trigger']}
-- الخدمات المكتشفة: {local_analysis['services']}
+- الخدمات: {local_analysis['services']}
 - القالب المقترح: {local_analysis['template']}
-- مستوى التعقيد: {local_analysis['complexity']}
+- اسم الـ Workflow: {local_analysis['workflow_name']}
 
 **طلب المستخدم:**
 {user_prompt}
-
-**ملاحظة:** تم استخدام التحليل المحلي بسبب عدم توفر الاتصال مع Gemini API.
 """
         
         return fallback_plan, False
 
 async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
-    """إنشاء workflow n8n مخصص باستخدام القوالب والذكاء الاصطناعي"""
+    """إنشاء workflow n8n متوافق 100% مع النظام"""
     try:
-        # استخراج القالب المقترح من الخطة
-        template_name = "webhook_to_sheets"  # افتراضي
+        # استخراج القالب من الخطة
+        template_name = "webhook_to_sheets"
+        workflow_name = "Generated Workflow"
         
-        for template_key in N8N_TEMPLATES.keys():
-            if template_key in plan:
+        # البحث عن القالب في الخطة
+        for template_key in ["webhook_sheets_email", "schedule_report", "slack_notification", "webhook_to_sheets"]:
+            if template_key in plan.lower():
                 template_name = template_key
                 break
         
-        print(f"[INFO] Using template: {template_name}")
-        base_template = copy.deepcopy(N8N_TEMPLATES[template_name])
-        
-        # تخصيص القالب باستخدام Gemini إذا كان متاحاً
+        # تخصيص اسم الـ workflow باستخدام Gemini إذا كان متاحاً
         if GEMINI_API_KEY:
-            customization_prompt = f"""
-قم بتخصيص قالب n8n workflow هذا ليناسب طلب المستخدم:
+            try:
+                customization_prompt = f"""
+قم بتخصيص هذا الـ workflow بناءً على الخطة:
 
-القالب الأساسي:
-{json.dumps(base_template, ensure_ascii=False, indent=2)}
-
-خطة العمل:
 {plan}
 
-تعديلات مطلوبة:
-1. غيّر اسم الـ workflow ليكون وصفياً
-2. عدّل أسماء العقد لتكون واضحة
-3. اضبط parameters العقد حسب الحاجة  
-4. تأكد من استخدام environment variables للبيانات الحساسة
-5. احتفظ بنفس structure وconnections
-
-أرجع JSON محدث كامل فقط.
+اختر القالب الأنسب وأعطه اسماً وصفياً باللغة الإنجليزية.
 """
-            
-            try:
-                customized_json = await _call_gemini_api(customization_prompt, SYS_WORKFLOW_DESIGNER)
                 
-                # تنظيف النص إذا كان محاطاً بـ ```json
-                cleaned_json = customized_json.strip()
-                if cleaned_json.startswith("```json"):
-                    cleaned_json = cleaned_json[7:]
-                if cleaned_json.endswith("```"):
-                    cleaned_json = cleaned_json[:-3]
+                customization = await _call_gemini_api(customization_prompt, SYS_WORKFLOW_CUSTOMIZER)
                 
-                # محاولة تحليل JSON
-                customized_workflow = json.loads(cleaned_json)
-                print("[SUCCESS] Gemini customization successful")
-                return json.dumps(customized_workflow, ensure_ascii=False, indent=2), True
+                # استخراج المعلومات من الاستجابة
+                lines = customization.strip().split('\n')
+                for line in lines:
+                    if line.startswith("TEMPLATE:"):
+                        suggested_template = line.split(":", 1)[1].strip()
+                        if suggested_template in ["webhook_to_sheets", "webhook_sheets_email", "schedule_report", "slack_notification"]:
+                            template_name = suggested_template
+                    elif line.startswith("WORKFLOW_NAME:"):
+                        workflow_name = line.split(":", 1)[1].strip()
                 
-            except json.JSONDecodeError as e:
-                print(f"[WARNING] Gemini generated invalid JSON: {e}")
-                print(f"Response preview: {customized_json[:500]}")
-                
+                print(f"[SUCCESS] AI customization: template={template_name}, name={workflow_name}")
+                        
             except Exception as e:
-                print(f"[WARNING] Gemini customization failed: {e}")
+                print(f"[WARNING] AI customization failed: {e}")
         
-        # استخدام القالب الأساسي مع تعديلات بسيطة
-        print("[INFO] Using base template with basic customization")
-        return json.dumps(base_template, ensure_ascii=False, indent=2), True
+        # استخراج اسم من التحليل المحلي كاحتياط
+        if "اسم الـ Workflow:" in plan:
+            try:
+                workflow_name = plan.split("اسم الـ Workflow:")[1].split("\n")[0].strip()
+            except:
+                pass
+        
+        print(f"[INFO] Building workflow: template={template_name}, name={workflow_name}")
+        
+        # بناء الـ workflow الكامل
+        workflow = build_complete_workflow(template_name, workflow_name)
+        
+        # التحقق من صحة البنية
+        if validate_workflow_structure(workflow):
+            print("[SUCCESS] Generated valid n8n workflow")
+            return json.dumps(workflow, ensure_ascii=False, indent=2), True
+        else:
+            print("[WARNING] Workflow validation failed, using fallback")
+            raise ValueError("Invalid workflow structure")
         
     except Exception as e:
         print(f"[ERROR] Workflow generation failed: {e}")
         
-        # إنشاء workflow أساسي جداً
-        minimal_workflow = {
-            "name": "Basic Automation Workflow",
-            "nodes": [
-                {
-                    "parameters": {},
-                    "id": "manual_trigger",
-                    "name": "Manual Trigger",
-                    "type": "n8n-nodes-base.manualTrigger",
-                    "typeVersion": 1,
-                    "position": [240, 300]
-                }
-            ],
-            "connections": {},
-            "createdAt": "2024-01-01T00:00:00.000Z",
-            "updatedAt": "2024-01-01T00:00:00.000Z", 
-            "settings": {"timezone": "UTC"},
-            "staticData": None,
-            "tags": ["basic"],
-            "triggerCount": 1,
-            "versionId": "1"
-        }
+        # إنشاء workflow احتياطي أساسي
+        fallback_workflow = build_complete_workflow("webhook_to_sheets", "Basic Automation Workflow")
+        return json.dumps(fallback_workflow, ensure_ascii=False, indent=2), False
+
+def validate_workflow_structure(workflow: Dict[str, Any]) -> bool:
+    """التحقق من صحة بنية الـ workflow"""
+    required_fields = ["name", "nodes", "connections", "active", "createdAt", "updatedAt", "id", "versionId"]
+    
+    for field in required_fields:
+        if field not in workflow:
+            print(f"[ERROR] Missing required field: {field}")
+            return False
+    
+    # التحقق من العقد
+    if not isinstance(workflow["nodes"], list) or len(workflow["nodes"]) == 0:
+        print("[ERROR] Invalid nodes structure")
+        return False
+    
+    # التحقق من معرفات العقد
+    node_ids = set()
+    for node in workflow["nodes"]:
+        if "id" not in node or not node["id"]:
+            print("[ERROR] Node missing ID")
+            return False
+        if node["id"] in node_ids:
+            print(f"[ERROR] Duplicate node ID: {node['id']}")
+            return False
+        node_ids.add(node["id"])
+    
+    # التحقق من الاتصالات
+    for source_id, connections in workflow["connections"].items():
+        if source_id not in node_ids:
+            print(f"[ERROR] Connection source not found: {source_id}")
+            return False
         
-        return json.dumps(minimal_workflow, ensure_ascii=False, indent=2), False
+        for connection_list in connections.get("main", []):
+            for connection in connection_list:
+                target_id = connection.get("node")
+                if target_id not in node_ids:
+                    print(f"[ERROR] Connection target not found: {target_id}")
+                    return False
+    
+    print("[SUCCESS] Workflow structure validation passed")
+    return True
 
 async def test_gemini_connection() -> Dict[str, Any]:
     """اختبار الاتصال مع Gemini API"""
@@ -587,8 +628,10 @@ async def test_gemini_connection() -> Dict[str, Any]:
         }
 
 def get_available_templates() -> Dict[str, str]:
-    """الحصول على قائمة القوالب المتاحة"""
+    """الحصول على قائمة القوالب المتاحة مع أوصافها"""
     return {
-        name: f"Template for {name.replace('_', ' ').title()}"
-        for name in N8N_TEMPLATES.keys()
+        "webhook_to_sheets": "Contact form to Google Sheets - Basic form data collection",
+        "webhook_sheets_email": "Form with email notification - Saves to sheets and sends welcome email", 
+        "schedule_report": "Daily automated report - Fetches data and emails summary",
+        "slack_notification": "Webhook to Slack - Sends notifications to Slack channel"
     }

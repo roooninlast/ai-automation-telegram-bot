@@ -9,7 +9,7 @@ from io import BytesIO
 
 # استيراد النظام المحسن
 try:
-    from ai_enhanced import (
+    from ai import (
         plan_workflow_with_ai,
         draft_n8n_json_with_ai, 
         test_gemini_connection,

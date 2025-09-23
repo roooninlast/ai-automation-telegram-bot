@@ -17,7 +17,15 @@ try:
         get_library_stats,
         enhanced_ai_system
     )
-    from n8n_builder import validate_n8n_json, make_minimal_valid_n8n
+    from n8n_builder import N8NBuilder
+    # إنشاء نسخة من N8NBuilder وتوفير aliases بنفس أسماء الدوال
+_builder = N8NBuilder()
+
+def validate_n8n_json(data):
+    return _builder.validate_n8n_json(data)
+
+def make_minimal_valid_n8n(spec):
+    return _builder.make_minimal_valid_n8n(spec)
     AI_SYSTEM_AVAILABLE = True
     print("[INFO] Enhanced AI system loaded successfully")
 except ImportError as e:

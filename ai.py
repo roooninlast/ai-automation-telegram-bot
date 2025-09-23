@@ -1,4 +1,4 @@
-# ai_enhanced.py - النظام المحسن الكامل
+# ai_enhanced.py - محدث للتوافق مع n8n Cloud الحديث
 import os, json, httpx, re
 from typing import Dict, Any, Tuple, List, Optional
 import copy
@@ -10,63 +10,340 @@ from dataclasses import dataclass
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
-# مكتبة workflows أساسية للتشغيل
-BASIC_WORKFLOWS = {
-    "webhook_to_sheets": {
-        "active": True,
-        "connections": {
-            "webhook_node": {
-                "main": [[{"node": "sheets_node", "type": "main", "index": 0}]]
-            }
+def create_modern_webhook_to_sheets(custom_data: Dict = None) -> Dict[str, Any]:
+    """قالب حديث متوافق مع n8n Cloud"""
+    
+    webhook_id = str(uuid.uuid4())
+    sheets_id = str(uuid.uuid4())
+    
+    sheet_name = "Sheet1"
+    workflow_name = "Enhanced Form to Google Sheets"
+    
+    if custom_data:
+        sheet_name = custom_data.get('sheet_name', sheet_name)
+        if sheet_name != "Sheet1":
+            workflow_name = f"Custom Form to {sheet_name}"
+    
+    # بناء الأعمدة
+    columns_value = {
+        "Name": "={{ $json.name }}",
+        "Email": "={{ $json.email }}",
+        "Message": "={{ $json.message }}",
+        "Request_ID": "={{ 'REQ-' + new Date().getTime().toString() }}",
+        "Timestamp": "={{ new Date().toISOString() }}"
+    }
+    
+    # إضافة حقول مخصصة
+    if custom_data and 'data_fields' in custom_data:
+        for field_key, field_name in custom_data['data_fields'].items():
+            if field_key not in ['name', 'email', 'message']:
+                columns_value[field_name] = f"={{{{ $json.{field_key} }}}}"
+    
+    return {
+        "meta": {
+            "templateCreatedBy": "Enhanced AI Bot v2.0",
+            "instanceId": str(uuid.uuid4())
         },
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z", 
-        "id": "1",
-        "name": "Enhanced Form to Google Sheets",
         "nodes": [
             {
                 "parameters": {
                     "httpMethod": "POST",
                     "path": "contact-form",
-                    "responseMode": "onReceived"
+                    "responseMode": "onReceived",
+                    "options": {}
                 },
-                "id": "webhook_node",
+                "id": webhook_id,
                 "name": "Form Webhook",
                 "type": "n8n-nodes-base.webhook",
                 "typeVersion": 2,
                 "position": [240, 300],
-                "webhookId": "webhook_node"
+                "webhookId": webhook_id
             },
             {
                 "parameters": {
                     "resource": "sheet",
                     "operation": "appendOrUpdate",
-                    "documentId": {"__rl": True, "value": "={{$env.GOOGLE_SHEET_ID}}", "mode": "id"},
-                    "sheetName": {"__rl": True, "value": "Sheet1", "mode": "list"},
+                    "documentId": {
+                        "__rl": True,
+                        "value": "={{$env.GOOGLE_SHEET_ID}}",
+                        "mode": "id"
+                    },
+                    "sheetName": {
+                        "__rl": True,
+                        "value": sheet_name,
+                        "mode": "list"
+                    },
                     "columns": {
                         "mappingMode": "defineBelow",
-                        "value": {
-                            "Name": "={{ $json.name }}",
-                            "Email": "={{ $json.email }}",
-                            "Message": "={{ $json.message }}",
-                            "Request_ID": "={{ 'REQ-' + new Date().getTime().toString() }}",
-                            "Timestamp": "={{ new Date().toISOString() }}"
-                        }
-                    }
+                        "value": columns_value,
+                        "matchingColumns": [],
+                        "schema": []
+                    },
+                    "options": {}
                 },
-                "id": "sheets_node",
+                "id": sheets_id,
                 "name": "Save to Sheets",
                 "type": "n8n-nodes-base.googleSheets",
                 "typeVersion": 4,
                 "position": [460, 300]
             }
         ],
-        "settings": {"executionOrder": "v1"},
+        "connections": {
+            webhook_id: {
+                "main": [
+                    [
+                        {
+                            "node": sheets_id,
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "active": True,
+        "settings": {
+            "executionOrder": "v1"
+        },
+        "versionId": str(uuid.uuid4()),
+        "id": str(uuid.uuid4()),
+        "name": workflow_name,
+        "tags": [
+            {
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "id": str(uuid.uuid4()),
+                "name": "form"
+            },
+            {
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "id": str(uuid.uuid4()),
+                "name": "webhook"
+            },
+            {
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "id": str(uuid.uuid4()),
+                "name": "sheets"
+            }
+        ],
+        "pinData": {},
         "staticData": {},
-        "tags": ["form", "webhook", "sheets"],
-        "triggerCount": 1,
-        "versionId": "1"
+        "createdAt": datetime.now().isoformat(),
+        "updatedAt": datetime.now().isoformat(),
+        "triggerCount": 1
     }
+
+def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
+    """نموذج مع إيميل - متوافق مع n8n Cloud الحديث"""
+    
+    webhook_id = str(uuid.uuid4())
+    process_id = str(uuid.uuid4())
+    sheets_id = str(uuid.uuid4())
+    email_id = str(uuid.uuid4())
+    respond_id = str(uuid.uuid4())
+    
+    sheet_name = "Service Requests"
+    workflow_name = "Service Request with Email Confirmation"
+    
+    if custom_data:
+        sheet_name = custom_data.get('sheet_name', sheet_name)
+        if sheet_name != "Service Requests":
+            workflow_name = f"Form to {sheet_name} with Email"
+    
+    return {
+        "meta": {
+            "templateCreatedBy": "Enhanced AI Bot v2.0",
+            "instanceId": str(uuid.uuid4())
+        },
+        "nodes": [
+            {
+                "parameters": {
+                    "httpMethod": "POST", 
+                    "path": "service-request",
+                    "responseMode": "onReceived",
+                    "options": {}
+                },
+                "id": webhook_id,
+                "name": "Service Request",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2,
+                "position": [240, 300],
+                "webhookId": webhook_id
+            },
+            {
+                "parameters": {
+                    "values": {
+                        "string": [
+                            {
+                                "name": "ticket_id",
+                                "value": "={{ 'TICKET-' + new Date().getTime().toString() }}"
+                            },
+                            {
+                                "name": "priority", 
+                                "value": "={{ $json.budget && parseInt($json.budget) > 10000 ? 'High' : 'Normal' }}"
+                            },
+                            {
+                                "name": "follow_up_date",
+                                "value": "={{ new Date(Date.now() + 3*24*60*60*1000).toISOString() }}"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": process_id,
+                "name": "Process Request Data",
+                "type": "n8n-nodes-base.set",
+                "typeVersion": 3,
+                "position": [460, 300]
+            },
+            {
+                "parameters": {
+                    "resource": "sheet",
+                    "operation": "appendOrUpdate", 
+                    "documentId": {
+                        "__rl": True,
+                        "value": "={{$env.SERVICE_SHEET_ID}}",
+                        "mode": "id"
+                    },
+                    "sheetName": {
+                        "__rl": True,
+                        "value": sheet_name,
+                        "mode": "list"
+                    },
+                    "columns": {
+                        "mappingMode": "defineBelow",
+                        "value": {
+                            "Ticket_ID": "={{ $('Process Request Data').item.json.ticket_id }}",
+                            "Client_Name": "={{ $json.name }}",
+                            "Company": "={{ $json.company }}",
+                            "Email": "={{ $json.email }}",
+                            "Service_Type": "={{ $json.service_type }}",
+                            "Budget": "={{ $json.budget }}",
+                            "Priority": "={{ $('Process Request Data').item.json.priority }}",
+                            "Description": "={{ $json.description }}",
+                            "Submitted_At": "={{ new Date().toISOString() }}",
+                            "Follow_Up_Date": "={{ $('Process Request Data').item.json.follow_up_date }}",
+                            "Status": "New"
+                        },
+                        "matchingColumns": [],
+                        "schema": []
+                    },
+                    "options": {}
+                },
+                "id": sheets_id,
+                "name": "Save Service Request", 
+                "type": "n8n-nodes-base.googleSheets",
+                "typeVersion": 4,
+                "position": [680, 300]
+            },
+            {
+                "parameters": {
+                    "resource": "message",
+                    "operation": "send",
+                    "toEmail": "={{ $json.email }}",
+                    "subject": "تأكيد استلام طلب الخدمة - {{ $('Process Request Data').item.json.ticket_id }}",
+                    "emailType": "text",
+                    "message": "عزيزي/عزيزتي {{ $json.name }},\n\nتم استلام طلب الخدمة الخاص بك بنجاح.\n\nتفاصيل الطلب:\n• رقم الطلب: {{ $('Process Request Data').item.json.ticket_id }}\n• نوع الخدمة: {{ $json.service_type }}\n• الأولوية: {{ $('Process Request Data').item.json.priority }}\n• موعد المتابعة المتوقع: {{ $('Process Request Data').item.json.follow_up_date.slice(0,10) }}\n\nسيتم التواصل معك خلال 24-48 ساعة لمناقشة التفاصيل.\n\nشكراً لثقتك بنا،\nفريق الخدمات",
+                    "options": {}
+                },
+                "id": email_id,
+                "name": "Send Confirmation Email",
+                "type": "n8n-nodes-base.gmail", 
+                "typeVersion": 2,
+                "position": [900, 300]
+            },
+            {
+                "parameters": {
+                    "respondBody": "{\"success\": true, \"message\": \"تم استلام طلبك بنجاح\", \"ticket_id\": \"{{ $('Process Request Data').item.json.ticket_id }}\"}",
+                    "options": {}
+                },
+                "id": respond_id,
+                "name": "Respond Success",
+                "type": "n8n-nodes-base.respondToWebhook",
+                "typeVersion": 1,
+                "position": [1120, 300]
+            }
+        ],
+        "connections": {
+            webhook_id: {
+                "main": [
+                    [
+                        {
+                            "node": process_id,
+                            "type": "main", 
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            process_id: {
+                "main": [
+                    [
+                        {
+                            "node": sheets_id,
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            sheets_id: {
+                "main": [
+                    [
+                        {
+                            "node": email_id,
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            email_id: {
+                "main": [
+                    [
+                        {
+                            "node": respond_id,
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "active": True,
+        "settings": {
+            "executionOrder": "v1"
+        },
+        "versionId": str(uuid.uuid4()),
+        "id": str(uuid.uuid4()),
+        "name": workflow_name,
+        "tags": [
+            {
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "id": str(uuid.uuid4()),
+                "name": "service"
+            },
+            {
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "id": str(uuid.uuid4()),
+                "name": "email"
+            }
+        ],
+        "pinData": {},
+        "staticData": {},
+        "createdAt": datetime.now().isoformat(),
+        "updatedAt": datetime.now().isoformat(),
+        "triggerCount": 1
+    }
+
+# القوالب الحديثة المتوافقة مع n8n Cloud
+MODERN_TEMPLATES = {
+    "webhook_to_sheets": create_modern_webhook_to_sheets,
+    "form_with_email": create_modern_form_with_email
 }
 
 class SimpleWorkflowLibrary:
@@ -78,12 +355,13 @@ class SimpleWorkflowLibrary:
     
     def load_basic_library(self):
         """تحميل مكتبة أساسية"""
-        for name, workflow in BASIC_WORKFLOWS.items():
+        for name, template_func in MODERN_TEMPLATES.items():
+            template = template_func()
             processed = {
-                'name': workflow['name'],
-                'raw_workflow': workflow,
-                'services': ['google-sheets'] if 'sheets' in name else ['basic'],
-                'trigger_types': ['webhook'] if 'webhook' in name else ['manual'],
+                'name': template['name'],
+                'raw_workflow': template,
+                'services': ['google-sheets', 'gmail'] if 'email' in name else ['google-sheets'],
+                'trigger_types': ['webhook'],
                 'keywords': name.split('_'),
                 'complexity': 'medium',
                 'active': True,
@@ -100,7 +378,7 @@ class SimpleWorkflowLibrary:
         return {
             'total_workflows': len(self.workflows),
             'active_workflows': len([w for w in self.workflows if w['active']]),
-            'unique_services': 2,
+            'unique_services': 3,
             'available_services': ['google-sheets', 'gmail', 'slack'],
             'available_triggers': ['webhook', 'schedule', 'manual'],
             'complexity_distribution': {'medium': len(self.workflows)}
@@ -108,11 +386,11 @@ class SimpleWorkflowLibrary:
 
 # النظام المحسن
 class EnhancedAISystem:
-    """نظام AI محسن مع مكتبة أساسية"""
+    """نظام AI محسن مع قوالب متوافقة مع n8n Cloud الحديث"""
     
     def __init__(self):
         self.library = SimpleWorkflowLibrary()
-        print(f"[INFO] Enhanced AI system initialized with {len(self.library.workflows)} workflows")
+        print(f"[INFO] Enhanced AI system initialized with {len(self.library.workflows)} modern workflows")
     
     async def analyze_request_with_ai(self, user_prompt: str) -> Dict[str, Any]:
         """تحليل الطلب مع AI أو احتياطي محلي"""
@@ -163,34 +441,48 @@ class EnhancedAISystem:
             services.append('google-sheets')
         if any(word in text for word in ['email', 'mail', 'gmail', 'إيميل']):
             services.append('gmail')
-        if 'slack' in text:
-            services.append('slack')
         
         if not services:
             services = ['google-sheets']  # افتراضي
         
-        # استخراج أسماء مخصصة بسيطة
+        # استخراج أسماء مخصصة محسنة
         custom_names = {}
         
-        # البحث عن أنماط الأسماء
-        sheet_patterns = [
+        # البحث عن أنماط الأسماء المختلفة
+        patterns = [
             r"جدول['\s]*['\"]([^'\"]+)['\"]",
-            r"sheet['\s]*['\"]([^'\"]+)['\"]",
-            r"في\s+['\"]([^'\"]+)['\"]"
+            r"sheet['\s]*named['\s]*['\"]([^'\"]+)['\"]",
+            r"في\s+['\"]([^'\"]+)['\"]",
+            r"اسمه\s+['\"]([^'\"]+)['\"]",
+            r"يسمى\s+['\"]([^'\"]+)['\"]"
         ]
         
-        for pattern in sheet_patterns:
+        for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 custom_names['sheet_name'] = match.group(1)
                 break
         
-        # منطق أعمال أساسي
+        # منطق أعمال محسن
         business_logic = []
-        if any(word in text for word in ['رقم', 'id', 'identifier']):
+        if any(word in text for word in ['رقم', 'id', 'identifier', 'ticket']):
             business_logic.append('generate_id')
-        if any(word in text for word in ['email', 'إيميل', 'رسالة']):
+        if any(word in text for word in ['email', 'إيميل', 'رسالة', 'تأكيد']):
             business_logic.append('send_email')
+        if any(word in text for word in ['priority', 'أولوية']):
+            business_logic.append('set_priority')
+        
+        # تحديد حقول البيانات المتقدمة
+        data_fields = {'name': 'Name', 'email': 'Email'}
+        
+        if 'company' in text or 'شركة' in text:
+            data_fields['company'] = 'Company'
+        if 'service' in text or 'خدمة' in text:
+            data_fields['service_type'] = 'Service Type'  
+        if 'budget' in text or 'ميزانية' in text:
+            data_fields['budget'] = 'Budget'
+        if 'message' in text or 'رسالة' in text:
+            data_fields['message'] = 'Message'
         
         return {
             'trigger_type': trigger,
@@ -198,7 +490,7 @@ class EnhancedAISystem:
             'operations': ['save_data', 'process_form'],
             'custom_names': custom_names,
             'business_logic': business_logic,
-            'data_fields': {'name': 'Name', 'email': 'Email', 'message': 'Message'}
+            'data_fields': data_fields
         }
 
 # النظام الرئيسي
@@ -246,58 +538,10 @@ async def _call_gemini_api(prompt: str, system_instruction: str = "") -> str:
         
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
-def customize_workflow_from_analysis(base_workflow: Dict, analysis: Dict) -> Dict:
-    """تخصيص workflow بناءً على التحليل"""
-    customized = copy.deepcopy(base_workflow)
-    
-    # تحديث الاسم
-    custom_names = analysis.get('custom_names', {})
-    if custom_names:
-        first_custom = list(custom_names.values())[0]
-        customized['name'] = f"Custom Form to {first_custom}"
-    
-    # تخصيص عقدة الجدول
-    for node in customized.get('nodes', []):
-        if 'googleSheets' in node.get('type', ''):
-            params = node.setdefault('parameters', {})
-            
-            # استخدام اسم الجدول المخصص
-            if 'sheet_name' in custom_names:
-                params['sheetName'] = {
-                    "__rl": True,
-                    "value": custom_names['sheet_name'],
-                    "mode": "list"
-                }
-            
-            # تخصيص الأعمدة
-            data_fields = analysis.get('data_fields', {})
-            if data_fields:
-                columns = {}
-                for field_key, field_name in data_fields.items():
-                    columns[field_name] = f"={{{{ $json.{field_key} }}}}"
-                
-                # إضافة حقول تلقائية
-                business_logic = analysis.get('business_logic', [])
-                if 'generate_id' in business_logic:
-                    columns['Request_ID'] = "={{ 'REQ-' + new Date().getTime().toString() }}"
-                
-                columns['Timestamp'] = "={{ new Date().toISOString() }}"
-                
-                params['columns'] = {
-                    "mappingMode": "defineBelow",
-                    "value": columns
-                }
-    
-    # تحديث التواريخ
-    customized['updatedAt'] = datetime.now().isoformat()
-    customized['id'] = str(uuid.uuid4())
-    
-    return customized
-
 async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
-    """تخطيط workflow محسن"""
+    """تخطيط workflow محسن مع قوالب حديثة"""
     try:
-        print(f"[INFO] Enhanced analysis starting...")
+        print(f"[INFO] Enhanced analysis with modern templates...")
         
         # تحليل الطلب
         analysis = await enhanced_ai_system.analyze_request_with_ai(user_prompt)
@@ -311,7 +555,7 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
         
         # تحضير التقرير
         plan_parts = [
-            "🔍 **تحليل محسن للطلب:**",
+            "🔍 **تحليل محسن للطلب (n8n Cloud متوافق):**",
             "",
             f"**المشغل:** {analysis.get('trigger_type', 'webhook')}",
             f"**الخدمات:** {', '.join(analysis.get('services', ['أساسية']))}",
@@ -333,10 +577,17 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
                 f"**منطق الأعمال:** {', '.join(business_logic)}"
             ])
         
+        data_fields = analysis.get('data_fields', {})
+        if len(data_fields) > 2:  # أكثر من name وemail
+            plan_parts.extend([
+                "",
+                f"**حقول البيانات:** {', '.join(data_fields.values())}"
+            ])
+        
         if relevant_workflows:
             plan_parts.extend([
                 "",
-                f"**قوالب مشابهة ({len(relevant_workflows)}):**"
+                f"**قوالب n8n Cloud متوافقة ({len(relevant_workflows)}):**"
             ])
             for i, wf in enumerate(relevant_workflows, 1):
                 plan_parts.append(f"{i}. {wf['name']}")
@@ -353,11 +604,12 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
         print(f"[WARNING] Enhanced planning failed: {e}")
         
         # خطة احتياطية
-        fallback_plan = f"""📋 **تحليل أساسي:**
+        fallback_plan = f"""📋 **تحليل أساسي (n8n Cloud متوافق):**
 
 **المشغل:** webhook  
 **الخدمات:** google-sheets
 **العمليات:** حفظ البيانات
+**التوافق:** n8n Cloud format
 
 **طلب المستخدم:**
 {user_prompt}
@@ -367,7 +619,7 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
         return fallback_plan, False
 
 async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
-    """إنشاء workflow مخصص"""
+    """إنشاء workflow مخصص متوافق مع n8n Cloud الحديث"""
     try:
         # استخراج طلب المستخدم من الخطة
         user_request = plan.split("طلب المستخدم:")[-1].strip()
@@ -375,22 +627,28 @@ async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
         # تحليل الطلب
         analysis = await enhanced_ai_system.analyze_request_with_ai(user_request)
         
-        # اختيار قالب مناسب
-        base_workflow = BASIC_WORKFLOWS['webhook_to_sheets']
+        # تحديد نوع القالب
+        services = analysis.get('services', [])
+        template_type = "webhook_to_sheets"
         
-        # تخصيص الـ workflow
-        customized_workflow = customize_workflow_from_analysis(base_workflow, analysis)
+        if 'gmail' in services:
+            template_type = "form_with_email"
         
-        print("[SUCCESS] Generated enhanced custom workflow")
+        # إنشاء workflow من القالب الحديث
+        if template_type in MODERN_TEMPLATES:
+            customized_workflow = MODERN_TEMPLATES[template_type](analysis)
+        else:
+            customized_workflow = create_modern_webhook_to_sheets(analysis)
+        
+        print(f"[SUCCESS] Generated modern n8n Cloud compatible workflow using {template_type}")
         return json.dumps(customized_workflow, ensure_ascii=False, indent=2), True
         
     except Exception as e:
-        print(f"[ERROR] Enhanced workflow generation failed: {e}")
+        print(f"[ERROR] Modern workflow generation failed: {e}")
         
-        # احتياطي
-        fallback = copy.deepcopy(BASIC_WORKFLOWS['webhook_to_sheets'])
-        fallback['name'] = "Basic Custom Automation"
-        fallback['updatedAt'] = datetime.now().isoformat()
+        # احتياطي حديث
+        fallback = create_modern_webhook_to_sheets()
+        fallback['name'] = "Enhanced Custom Automation (Fallback)"
         
         return json.dumps(fallback, ensure_ascii=False, indent=2), False
 
@@ -403,11 +661,12 @@ async def test_gemini_connection() -> Dict[str, Any]:
         }
     
     try:
-        result = await _call_gemini_api("قل 'النظام المحسن يعمل!'")
+        result = await _call_gemini_api("قل 'النظام المحسن مع n8n Cloud يعمل!'")
         return {
             "success": True,
             "response": result,
-            "model": GEMINI_MODEL
+            "model": GEMINI_MODEL,
+            "compatibility": "n8n Cloud Ready"
         }
     except Exception as e:
         return {
@@ -416,16 +675,19 @@ async def test_gemini_connection() -> Dict[str, Any]:
         }
 
 def get_available_templates() -> Dict[str, str]:
-    """القوالب المتاحة"""
+    """القوالب المتاحة المتوافقة مع n8n Cloud"""
     return {
-        "enhanced_form": "Form with custom fields and auto-generated IDs",
-        "basic_automation": "Simple webhook to sheets integration",
-        "scheduled_task": "Time-based automation task"
+        "modern_webhook_form": "Modern form with custom fields (n8n Cloud compatible)",
+        "service_request_email": "Service request with email automation (n8n Cloud)",
+        "enhanced_automation": "Advanced workflow with business logic (n8n Cloud)"
     }
 
 def get_library_stats() -> Dict[str, Any]:
-    """إحصائيات المكتبة"""
-    return enhanced_ai_system.library.get_stats()
+    """إحصائيات المكتبة المحسنة"""
+    stats = enhanced_ai_system.library.get_stats()
+    stats['compatibility'] = 'n8n Cloud Ready'
+    stats['format_version'] = 'Modern'
+    return stats
 
 def search_library_candidates(query: str, top_k: int = 3) -> List[Dict]:
     """البحث في المكتبة"""

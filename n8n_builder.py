@@ -533,3 +533,117 @@ def customize_modern_template(template: Dict[str, Any], custom_data: Dict[str, A
     template['versionId'] = str(uuid.uuid4())
     
     return template
+ # =========================
+# Compatibility Layer (API expected by main.py / ai.py)
+# =========================
+
+from typing import Tuple
+
+REQUIRED_TOP_KEYS = {"nodes", "connections", "name"}
+
+def validate_n8n_json(data: dict) -> Tuple[bool, str]:
+    """
+    تحقق سريع من بنية JSON الخاصة بـ n8n.
+    يرجّع (True, "") إذا كل شيء تمام، أو (False, سبب) لو فيه نقص واضح.
+    """
+    if not isinstance(data, dict):
+        return False, "Workflow must be a dict"
+
+    missing = REQUIRED_TOP_KEYS - set(data.keys())
+    if missing:
+        return False, f"Missing top-level keys: {', '.join(sorted(missing))}"
+
+    if not isinstance(data["nodes"], list) or len(data["nodes"]) == 0:
+        return False, "nodes must be a non-empty list"
+
+    if not isinstance(data["connections"], dict):
+        return False, "connections must be a dict"
+
+    if not isinstance(data["name"], str) or not data["name"].strip():
+        return False, "name must be a non-empty string"
+
+    # تحقق بسيط من أن الـ IDs المشار لها في connections موجودة ضمن nodes
+    node_ids = {str(n.get("id")) for n in data["nodes"] if "id" in n}
+    for src, bundles in data["connections"].items():
+        if str(src) not in node_ids:
+            return False, f"Connection source id not found in nodes: {src}"
+        if not isinstance(bundles, dict) or "main" not in bundles:
+            return False, f"Malformed connections for source: {src}"
+
+    return True, ""
+
+
+def _pick_template_name(spec: dict) -> str:
+    """
+    من الـ spec نختار أقرب قالب.
+    - لو spec['template'] موجودة نستخدمها كما هي (لو من الثلاثة المعروفة).
+    - وإلا نحاول نتوقع حسب كلمات مفتاحية.
+    """
+    if not isinstance(spec, dict):
+        return "webhook_to_sheets"
+
+    explicit = str(spec.get("template", "")).strip()
+    allowed = {"webhook_to_sheets", "form_with_email", "scheduled_report"}
+    if explicit in allowed:
+        return explicit
+
+    text = (spec.get("goal") or spec.get("description") or "").lower()
+    if any(k in text for k in ["cron", "schedule", "report", "daily", "every"]):
+        return "scheduled_report"
+    if any(k in text for k in ["email", "gmail", "mail"]):
+        return "form_with_email"
+    return "webhook_to_sheets"
+
+
+def make_minimal_valid_n8n(spec: dict = None) -> dict:
+    """
+    يُرجِع ورْكفلو جاهز للاستيراد في n8n Cloud بالاعتماد على القوالب الحديثة
+    الموجودة في هذا الملف. يقبل spec اختيارية فيها:
+      - template: أحد ['webhook_to_sheets', 'form_with_email', 'scheduled_report']
+      - sheet_name: اسم الجدول إن حبيت تغيّرو
+      - data_fields: dict {field_key: "العنوان في الشيت"} لإضافة أعمدة
+      - business_logic: مفاتيح بسيطة (مثلاً: {"generate_id": True})
+    """
+    spec = spec or {}
+    template_name = _pick_template_name(spec)
+
+    custom_data = {}
+    if "sheet_name" in spec:
+        custom_data["sheet_name"] = spec["sheet_name"]
+    if "data_fields" in spec:
+        custom_data["data_fields"] = spec["data_fields"]
+    if "business_logic" in spec:
+        custom_data["business_logic"] = spec["business_logic"]
+
+    # نستعمل دوال القوالب الأصلية
+    template = get_modern_template(template_name, custom_data or None)
+    ok, reason = validate_n8n_json(template)
+    if not ok:
+        # في حال صار خلل غير متوقع في القالب
+        raise ValueError(f"Generated workflow failed validation: {reason}")
+    return template
+
+
+class N8NBuilder:
+    """
+    كلاس بسيط يوفّر نفس الواجهة التي قد يناديها الكود القديم.
+    """
+    def validate_n8n_json(self, data: dict):
+        return validate_n8n_json(data)
+
+    def make_minimal_valid_n8n(self, spec: dict = None):
+        return make_minimal_valid_n8n(spec)
+
+
+__all__ = [
+    # القوالب الحديثة
+    "create_modern_webhook_to_sheets",
+    "create_modern_form_with_email",
+    "create_modern_scheduled_report",
+    "get_modern_template",
+    "customize_modern_template",
+    # واجهة التوافق
+    "validate_n8n_json",
+    "make_minimal_valid_n8n",
+    "N8NBuilder",
+]

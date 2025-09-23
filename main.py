@@ -17,19 +17,42 @@ try:
         get_library_stats,
         enhanced_ai_system,
     )
-    from n8n_builder import N8NBuilder
 
-    # هنا داخل الـ try لكن بعد الاستيراد
-    _builder = N8NBuilder()
+    # --- لودر مرِن لـ n8n_builder ---
+    import importlib
 
-    def validate_n8n_json(data):
-        return _builder.validate_n8n_json(data)
+    nb = importlib.import_module("n8n_builder")
 
-    def make_minimal_valid_n8n(spec):
-        return _builder.make_minimal_valid_n8n(spec)
+    # نحاول نقرأ الدوال مباشرة إن وُجدت كموديول-ليفل
+    validate_n8n_json = getattr(nb, "validate_n8n_json", None)
+    make_minimal_valid_n8n = getattr(nb, "make_minimal_valid_n8n", None)
+
+    if not (callable(validate_n8n_json) and callable(make_minimal_valid_n8n)):
+        # لو الدوال مش موجودة بالموديول، نحاول نلاقي كلاس معروف ونبني منه aliases
+        BuilderCls = (
+            getattr(nb, "N8NBuilder", None)
+            or getattr(nb, "Builder", None)
+            or getattr(nb, "WorkflowBuilder", None)
+        )
+        if BuilderCls is None:
+            raise ImportError(
+                "n8n_builder API not found: expected functions or a builder class."
+            )
+
+        _builder = BuilderCls()
+
+        if not callable(validate_n8n_json):
+            validate_n8n_json = lambda data: _builder.validate_n8n_json(data)
+
+        if not callable(make_minimal_valid_n8n):
+            make_minimal_valid_n8n = lambda spec: _builder.make_minimal_valid_n8n(spec)
 
     AI_SYSTEM_AVAILABLE = True
     print("[INFO] Enhanced AI system loaded successfully")
+
+except ImportError as e:
+    print(f"[WARNING] Enhanced AI system not available: {e}")
+    AI_SYSTEM_AVAILABLE = False
 
 except ImportError as e:
     print(f"[WARNING] Enhanced AI system not available: {e}")

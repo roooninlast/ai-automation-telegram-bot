@@ -1,10 +1,9 @@
-# ai_enhanced.py - محدث للتوافق مع n8n Cloud الحديث
+# ai_enhanced.py - النظام المحسن الكامل
 import os, json, httpx, re
 from typing import Dict, Any, Tuple, List, Optional
 import copy
 import uuid
 from datetime import datetime
-from dataclasses import dataclass
 
 # إعدادات Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -114,18 +113,6 @@ def create_modern_webhook_to_sheets(custom_data: Dict = None) -> Dict[str, Any]:
                 "updatedAt": datetime.now().isoformat(),
                 "id": str(uuid.uuid4()),
                 "name": "form"
-            },
-            {
-                "createdAt": datetime.now().isoformat(),
-                "updatedAt": datetime.now().isoformat(),
-                "id": str(uuid.uuid4()),
-                "name": "webhook"
-            },
-            {
-                "createdAt": datetime.now().isoformat(),
-                "updatedAt": datetime.now().isoformat(),
-                "id": str(uuid.uuid4()),
-                "name": "sheets"
             }
         ],
         "pinData": {},
@@ -142,7 +129,6 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
     process_id = str(uuid.uuid4())
     sheets_id = str(uuid.uuid4())
     email_id = str(uuid.uuid4())
-    respond_id = str(uuid.uuid4())
     
     sheet_name = "Service Requests"
     workflow_name = "Service Request with Email Confirmation"
@@ -183,10 +169,6 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                             {
                                 "name": "priority", 
                                 "value": "={{ $json.budget && parseInt($json.budget) > 10000 ? 'High' : 'Normal' }}"
-                            },
-                            {
-                                "name": "follow_up_date",
-                                "value": "={{ new Date(Date.now() + 3*24*60*60*1000).toISOString() }}"
                             }
                         ]
                     },
@@ -204,7 +186,7 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                     "operation": "appendOrUpdate", 
                     "documentId": {
                         "__rl": True,
-                        "value": "={{$env.SERVICE_SHEET_ID}}",
+                        "value": "={{$env.GOOGLE_SHEET_ID}}",
                         "mode": "id"
                     },
                     "sheetName": {
@@ -216,15 +198,13 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                         "mappingMode": "defineBelow",
                         "value": {
                             "Ticket_ID": "={{ $('Process Request Data').item.json.ticket_id }}",
-                            "Client_Name": "={{ $json.name }}",
-                            "Company": "={{ $json.company }}",
+                            "Name": "={{ $json.name }}",
                             "Email": "={{ $json.email }}",
+                            "Company": "={{ $json.company }}",
                             "Service_Type": "={{ $json.service_type }}",
                             "Budget": "={{ $json.budget }}",
                             "Priority": "={{ $('Process Request Data').item.json.priority }}",
-                            "Description": "={{ $json.description }}",
                             "Submitted_At": "={{ new Date().toISOString() }}",
-                            "Follow_Up_Date": "={{ $('Process Request Data').item.json.follow_up_date }}",
                             "Status": "New"
                         },
                         "matchingColumns": [],
@@ -245,7 +225,7 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                     "toEmail": "={{ $json.email }}",
                     "subject": "تأكيد استلام طلب الخدمة - {{ $('Process Request Data').item.json.ticket_id }}",
                     "emailType": "text",
-                    "message": "عزيزي/عزيزتي {{ $json.name }},\n\nتم استلام طلب الخدمة الخاص بك بنجاح.\n\nتفاصيل الطلب:\n• رقم الطلب: {{ $('Process Request Data').item.json.ticket_id }}\n• نوع الخدمة: {{ $json.service_type }}\n• الأولوية: {{ $('Process Request Data').item.json.priority }}\n• موعد المتابعة المتوقع: {{ $('Process Request Data').item.json.follow_up_date.slice(0,10) }}\n\nسيتم التواصل معك خلال 24-48 ساعة لمناقشة التفاصيل.\n\nشكراً لثقتك بنا،\nفريق الخدمات",
+                    "message": "عزيزي/عزيزتي {{ $json.name }},\\n\\nتم استلام طلب الخدمة الخاص بك بنجاح.\\n\\nرقم الطلب: {{ $('Process Request Data').item.json.ticket_id }}\\n\\nشكراً لثقتك بنا،\\nفريق الخدمات",
                     "options": {}
                 },
                 "id": email_id,
@@ -253,17 +233,6 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                 "type": "n8n-nodes-base.gmail", 
                 "typeVersion": 2,
                 "position": [900, 300]
-            },
-            {
-                "parameters": {
-                    "respondBody": "{\"success\": true, \"message\": \"تم استلام طلبك بنجاح\", \"ticket_id\": \"{{ $('Process Request Data').item.json.ticket_id }}\"}",
-                    "options": {}
-                },
-                "id": respond_id,
-                "name": "Respond Success",
-                "type": "n8n-nodes-base.respondToWebhook",
-                "typeVersion": 1,
-                "position": [1120, 300]
             }
         ],
         "connections": {
@@ -299,17 +268,6 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                         }
                     ]
                 ]
-            },
-            email_id: {
-                "main": [
-                    [
-                        {
-                            "node": respond_id,
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
             }
         },
         "active": True,
@@ -325,12 +283,6 @@ def create_modern_form_with_email(custom_data: Dict = None) -> Dict[str, Any]:
                 "updatedAt": datetime.now().isoformat(),
                 "id": str(uuid.uuid4()),
                 "name": "service"
-            },
-            {
-                "createdAt": datetime.now().isoformat(),
-                "updatedAt": datetime.now().isoformat(),
-                "id": str(uuid.uuid4()),
-                "name": "email"
             }
         ],
         "pinData": {},
@@ -368,6 +320,7 @@ class SimpleWorkflowLibrary:
                 'relevance_score': 1
             }
             self.workflows.append(processed)
+        print(f"[INFO] Loaded {len(self.workflows)} basic templates")
     
     def search_workflows(self, query: str, services: List[str] = None, max_results: int = 5):
         """بحث مبسط في المكتبة"""
@@ -410,11 +363,11 @@ class EnhancedAISystem:
 
 استخرج المعلومات وأجب بـ JSON:
 {{
-  "trigger_type": "webhook/schedule/manual",
-  "services": ["service1", "service2"],
-  "operations": ["operation1", "operation2"],
+  "trigger_type": "webhook",
+  "services": ["google-sheets"],
+  "operations": ["save_data"],
   "custom_names": {{"sheet_name": "اسم مخصص"}},
-  "business_logic": ["generate_id", "send_email"],
+  "business_logic": ["generate_id"],
   "data_fields": {{"name": "Name", "email": "Email"}}
 }}
 """
@@ -422,13 +375,17 @@ class EnhancedAISystem:
         response = await _call_gemini_api(analysis_prompt)
         json_match = re.search(r'\{.*\}', response, re.DOTALL)
         if json_match:
-            return json.loads(json_match.group())
+            try:
+                return json.loads(json_match.group())
+            except:
+                return self._local_analysis(user_prompt)
         else:
             return self._local_analysis(user_prompt)
     
     def _local_analysis(self, user_prompt: str) -> Dict[str, Any]:
         """تحليل محلي احتياطي محسن"""
         text = user_prompt.lower()
+        print(f"[INFO] Local analysis for: {text[:50]}...")
         
         # تحديد المشغل
         trigger = 'webhook'
@@ -458,9 +415,10 @@ class EnhancedAISystem:
         ]
         
         for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, user_prompt, re.IGNORECASE)
             if match:
                 custom_names['sheet_name'] = match.group(1)
+                print(f"[INFO] Found custom sheet name: {match.group(1)}")
                 break
         
         # منطق أعمال محسن
@@ -469,8 +427,6 @@ class EnhancedAISystem:
             business_logic.append('generate_id')
         if any(word in text for word in ['email', 'إيميل', 'رسالة', 'تأكيد']):
             business_logic.append('send_email')
-        if any(word in text for word in ['priority', 'أولوية']):
-            business_logic.append('set_priority')
         
         # تحديد حقول البيانات المتقدمة
         data_fields = {'name': 'Name', 'email': 'Email'}
@@ -484,7 +440,7 @@ class EnhancedAISystem:
         if 'message' in text or 'رسالة' in text:
             data_fields['message'] = 'Message'
         
-        return {
+        result = {
             'trigger_type': trigger,
             'services': services,
             'operations': ['save_data', 'process_form'],
@@ -492,6 +448,9 @@ class EnhancedAISystem:
             'business_logic': business_logic,
             'data_fields': data_fields
         }
+        
+        print(f"[INFO] Analysis result: {json.dumps(result, ensure_ascii=False)}")
+        return result
 
 # النظام الرئيسي
 enhanced_ai_system = EnhancedAISystem()
@@ -550,7 +509,7 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
         relevant_workflows = enhanced_ai_system.library.search_workflows(
             user_prompt, 
             analysis.get('services', []),
-            max_results=3
+            max_results=2
         )
         
         # تحضير التقرير
@@ -615,12 +574,13 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
 {user_prompt}
 
 (استخدام النظام الأساسي - للحصول على أفضل النتائج، تأكد من GEMINI_API_KEY)"""
-        
         return fallback_plan, False
 
 async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
     """إنشاء workflow مخصص متوافق مع n8n Cloud الحديث"""
     try:
+        print(f"[INFO] Generating modern n8n workflow...")
+        
         # استخراج طلب المستخدم من الخطة
         user_request = plan.split("طلب المستخدم:")[-1].strip()
         
@@ -634,6 +594,9 @@ async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
         if 'gmail' in services:
             template_type = "form_with_email"
         
+        print(f"[INFO] Using template: {template_type}")
+        print(f"[INFO] Custom data: {json.dumps(analysis, ensure_ascii=False)}")
+        
         # إنشاء workflow من القالب الحديث
         if template_type in MODERN_TEMPLATES:
             customized_workflow = MODERN_TEMPLATES[template_type](analysis)
@@ -641,10 +604,15 @@ async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
             customized_workflow = create_modern_webhook_to_sheets(analysis)
         
         print(f"[SUCCESS] Generated modern n8n Cloud compatible workflow using {template_type}")
-        return json.dumps(customized_workflow, ensure_ascii=False, indent=2), True
+        final_json = json.dumps(customized_workflow, ensure_ascii=False, indent=2)
+        print(f"[INFO] Generated JSON length: {len(final_json)} characters")
+        
+        return final_json, True
         
     except Exception as e:
         print(f"[ERROR] Modern workflow generation failed: {e}")
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
         
         # احتياطي حديث
         fallback = create_modern_webhook_to_sheets()
@@ -692,3 +660,14 @@ def get_library_stats() -> Dict[str, Any]:
 def search_library_candidates(query: str, top_k: int = 3) -> List[Dict]:
     """البحث في المكتبة"""
     return enhanced_ai_system.library.search_workflows(query, max_results=top_k)
+
+# تصدير الوظائف للاستخدام
+__all__ = [
+    'plan_workflow_with_ai',
+    'draft_n8n_json_with_ai', 
+    'test_gemini_connection',
+    'get_available_templates',
+    'get_library_stats',
+    'search_library_candidates',
+    'enhanced_ai_system'
+]

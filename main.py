@@ -1,4 +1,7 @@
-# main.py - Squirrel Framework Integration for High Accuracy
+import os, sys
+print("DEBUG CWD:", os.getcwd())
+print("DEBUG FILES:", os.listdir())
+print("DEBUG PYTHONPATH:", sys.path)
 import os, json, asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse

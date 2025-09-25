@@ -1,4 +1,4 @@
-# main.py - النسخة المحسنة والمُصححة مع OpenRouter
+# main.py - النسخة المحسنة والمُصححة
 import os, json, asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -12,7 +12,7 @@ try:
     from ai_enhanced import (
         plan_workflow_with_ai,
         draft_n8n_json_with_ai, 
-        test_openrouter_connection,
+        test_gemini_connection,
         get_available_templates,
         get_library_stats,
         enhanced_ai_system
@@ -31,7 +31,7 @@ app = FastAPI(title="Enhanced AI n8n Automation Bot with n8n Cloud Support")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "enhanced_secret_2024")
 WEBHOOK_PATH = f"/webhook/{WEBHOOK_SECRET}"
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 async def send_message(chat_id: int, text: str, parse_mode: str = "Markdown"):
     """إرسال رسالة نصية مع تقسيم الرسائل الطويلة"""
@@ -121,7 +121,7 @@ async def handle_text_message(chat_id: int, text: str):
         plan, ai_used_for_plan = await plan_workflow_with_ai(text)
         
         # إرسال تحليل الطلب
-        analysis_status = "🧠 **تحليل OpenRouter AI متقدم**" if ai_used_for_plan else "📋 **تحليل محلي محسن**"
+        analysis_status = "🧠 **تحليل Gemini AI متقدم**" if ai_used_for_plan else "📋 **تحليل محلي محسن**"
         plan_message = f"📊 **نتائج التحليل** {analysis_status}\n\n{plan}"
         await send_message(chat_id, plan_message)
         
@@ -240,7 +240,7 @@ async def handle_text_message(chat_id: int, text: str):
 **الخطأ:** {str(e)[:200]}
 
 **الحلول:**
-• تحقق من OPENROUTER_API_KEY
+• تحقق من GEMINI_API_KEY
 • تأكد من صحة ملفات النظام
 • حاول مرة أخرى بوصف أكثر تفصيلاً
 • راجع /status للتحقق من حالة النظام
@@ -268,7 +268,7 @@ async def handle_update(update: dict):
                 welcome_msg = f"""🚀 **مرحباً بك في البوت المحسن!**
 
 **النظام الجديد 2.0:**
-🧠 **تحليل أذكى:** OpenRouter AI لفهم الطلبات المعقدة
+🧠 **تحليل أذكى:** Gemini AI لفهم الطلبات المعقدة
 📚 **قوالب متقدمة:** مكتبة workflows محسنة
 🎯 **توافق كامل:** n8n Cloud format حديث  
 🔧 **تخصيص دقيق:** أسماء وحقول مخصصة
@@ -290,7 +290,7 @@ async def handle_update(update: dict):
 /status - حالة النظام المحسن
 /test - اختبار الاتصالات
 
-**حالة النظام:** {'✅ محسن + n8n Cloud' if AI_SYSTEM_AVAILABLE and OPENROUTER_API_KEY else '⚠️ أساسي'}
+**حالة النظام:** {'✅ محسن + n8n Cloud' if AI_SYSTEM_AVAILABLE and GEMINI_API_KEY else '⚠️ أساسي'}
 
 ابدأ بوصف الأتمتة بأكبر قدر من التفاصيل!"""
                 await send_message(chat_id, welcome_msg)
@@ -320,13 +320,13 @@ async def handle_update(update: dict):
                 status_info = f"""📊 **حالة النظام المحسن 2.0:**
 
 **الذكاء الاصطناعي:**
-• OpenRouter API: {'✅ متصل ومُفعل' if OPENROUTER_API_KEY else '❌ غير مُعرف'}
-• النموذج: {os.getenv('OPENROUTER_MODEL', 'meta-llama/llama-3.1-8b-instruct:free')}
+• Gemini API: {'✅ متصل ومُفعل' if GEMINI_API_KEY else '❌ غير مُعرف'}
+• النموذج: {os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')}
 • النظام المحسن: {'✅ فعال' if AI_SYSTEM_AVAILABLE else '❌ غير متوفر'}
 
 **التوافق والجودة:**
 • تنسيق n8n: {'✅ Cloud Ready' if AI_SYSTEM_AVAILABLE else '⚠️ أساسي'}
-• مستوى التخصيص: {'95%' if AI_SYSTEM_AVAILABLE and OPENROUTER_API_KEY else '70%'}
+• مستوى التخصيص: {'95%' if AI_SYSTEM_AVAILABLE and GEMINI_API_KEY else '70%'}
 • دعم الأسماء المخصصة: {'✅ متقدم' if AI_SYSTEM_AVAILABLE else '⚠️ محدود'}
 
 **الاتصالات:**
@@ -355,7 +355,7 @@ async def handle_update(update: dict):
                 await send_message(chat_id, "🔍 اختبار النظام المحسن...")
                 
                 if AI_SYSTEM_AVAILABLE:
-                    test_result = await test_openrouter_connection()
+                    test_result = await test_gemini_connection()
                     if test_result["success"]:
                         await send_message(chat_id, 
                             f"✅ **اختبار النظام ناجح!**\n\n"
@@ -377,7 +377,7 @@ async def handle_update(update: dict):
                 help_msg = """📚 **دليل النظام المحسن 2.0:**
 
 **🆕 المميزات الجديدة:**
-• تحليل أذكى باستخدام OpenRouter AI
+• تحليل أذكى باستخدام Gemini AI
 • توافق كامل مع n8n Cloud
 • أسماء وحقول مخصصة دقيقة
 • معالجة بيانات متقدمة
@@ -459,7 +459,7 @@ async def root():
         "service": "Enhanced AI n8n Automation Bot",
         "version": "2.0-enhanced",
         "ai_system": AI_SYSTEM_AVAILABLE,
-        "openrouter_configured": bool(OPENROUTER_API_KEY),
+        "gemini_configured": bool(GEMINI_API_KEY),
         "n8n_compatibility": "Cloud Ready" if AI_SYSTEM_AVAILABLE else "Basic",
         "features": [
             "Advanced AI Analysis",
@@ -530,15 +530,15 @@ async def bot_info():
             
             # اختبار النظام المحسن
             enhanced_status = {
-                "configured": bool(OPENROUTER_API_KEY), 
+                "configured": bool(GEMINI_API_KEY), 
                 "working": False, 
                 "library_loaded": False,
                 "n8n_compatibility": "Cloud Ready" if AI_SYSTEM_AVAILABLE else "Basic"
             }
             
-            if OPENROUTER_API_KEY and AI_SYSTEM_AVAILABLE:
+            if GEMINI_API_KEY and AI_SYSTEM_AVAILABLE:
                 try:
-                    test_result = await test_openrouter_connection()
+                    test_result = await test_gemini_connection()
                     enhanced_status["working"] = test_result["success"]
                     if not test_result["success"]:
                         enhanced_status["error"] = test_result["error"]
@@ -555,7 +555,7 @@ async def bot_info():
                 "webhook": webhook_response.json(), 
                 "enhanced_system": {
                     "available": AI_SYSTEM_AVAILABLE,
-                    "openrouter": enhanced_status,
+                    "gemini": enhanced_status,
                     "expected_quality": "95%" if enhanced_status["working"] else "70%",
                     "n8n_compatibility": enhanced_status["n8n_compatibility"],
                     "features": [
@@ -569,7 +569,7 @@ async def bot_info():
                 "webhook_path": WEBHOOK_PATH,
                 "environment": {
                     "render_url": os.getenv("RENDER_EXTERNAL_URL"),
-                    "openrouter_model": os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free"),
+                    "gemini_model": os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
                     "version": "2.0-enhanced"
                 }
             }
@@ -577,6 +577,46 @@ async def bot_info():
         return {"error": str(e)}
 
 @app.get("/test-enhanced")
-async def test_enhance
-                    
-          
+async def test_enhanced_system():
+    """اختبار النظام المحسن عبر HTTP endpoint"""
+    if not AI_SYSTEM_AVAILABLE:
+        return {"success": False, "error": "Enhanced system not available"}
+    
+    test_result = await test_gemini_connection()
+    
+    if test_result["success"] and AI_SYSTEM_AVAILABLE:
+        try:
+            library_stats = get_library_stats()
+            test_result["library_stats"] = library_stats
+            test_result["quality_level"] = "95%"
+            test_result["n8n_compatibility"] = "Cloud Ready"
+        except Exception as e:
+            test_result["library_error"] = str(e)
+    
+    return test_result
+
+@app.get("/library-stats")
+async def library_statistics():
+    """إحصائيات مكتبة الـ workflows المحسنة"""
+    if not AI_SYSTEM_AVAILABLE:
+        return {"error": "Enhanced system not available"}
+    
+    try:
+        stats = get_library_stats()
+        return {
+            **stats,
+            "system_version": "2.0-enhanced",
+            "last_updated": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# Static files
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public")
+if os.path.isdir(static_dir):
+    app.mount("/docs", StaticFiles(directory=static_dir, html=True), name="docs")
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

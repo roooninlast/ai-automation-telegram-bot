@@ -9,7 +9,7 @@ from io import BytesIO
 
 # Import enhanced AI system
 try:
-    from enhanced_ai_system import (
+    from ai_enhanced import (
         enhanced_workflow_planning,
         enhanced_workflow_generation,
         EnhancedWorkflowGenerator

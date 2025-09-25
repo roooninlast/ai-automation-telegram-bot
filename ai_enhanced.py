@@ -1,13 +1,13 @@
-# ai_enhanced.py - النظام المحسن الكامل
+# ai_enhanced.py - النظام المحسن الكامل مع OpenRouter
 import os, json, httpx, re
 from typing import Dict, Any, Tuple, List, Optional
 import copy
 import uuid
 from datetime import datetime
 
-# إعدادات Gemini API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+# إعدادات OpenRouter API
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
 
 def create_modern_webhook_to_sheets(custom_data: Dict = None) -> Dict[str, Any]:
     """قالب حديث متوافق مع n8n Cloud"""
@@ -347,16 +347,16 @@ class EnhancedAISystem:
     
     async def analyze_request_with_ai(self, user_prompt: str) -> Dict[str, Any]:
         """تحليل الطلب مع AI أو احتياطي محلي"""
-        if GEMINI_API_KEY:
+        if OPENROUTER_API_KEY:
             try:
-                return await self._gemini_analysis(user_prompt)
+                return await self._openrouter_analysis(user_prompt)
             except Exception as e:
-                print(f"[WARNING] Gemini analysis failed: {e}")
+                print(f"[WARNING] OpenRouter analysis failed: {e}")
         
         return self._local_analysis(user_prompt)
     
-    async def _gemini_analysis(self, user_prompt: str) -> Dict[str, Any]:
-        """تحليل باستخدام Gemini"""
+    async def _openrouter_analysis(self, user_prompt: str) -> Dict[str, Any]:
+        """تحليل باستخدام OpenRouter"""
         analysis_prompt = f"""
 تحليل طلب الأتمتة:
 "{user_prompt}"
@@ -372,7 +372,7 @@ class EnhancedAISystem:
 }}
 """
         
-        response = await _call_gemini_api(analysis_prompt)
+        response = await _call_openrouter_api(analysis_prompt)
         json_match = re.search(r'\{.*\}', response, re.DOTALL)
         if json_match:
             try:
@@ -455,47 +455,43 @@ class EnhancedAISystem:
 # النظام الرئيسي
 enhanced_ai_system = EnhancedAISystem()
 
-async def _call_gemini_api(prompt: str, system_instruction: str = "") -> str:
-    """استدعاء Gemini API"""
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY not configured")
+async def _call_openrouter_api(prompt: str, system_instruction: str = "") -> str:
+    """استدعاء OpenRouter API"""
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY not configured")
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    url = "https://openrouter.ai/api/v1/chat/completions"
     
-    contents = []
+    messages = []
     if system_instruction:
-        contents.append({
-            "role": "model",
-            "parts": [{"text": system_instruction}]
-        })
-    
-    contents.append({
-        "role": "user", 
-        "parts": [{"text": prompt}]
-    })
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": prompt})
     
     payload = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 2000,
-            "topP": 0.8,
-            "topK": 40
-        }
+        "model": OPENROUTER_MODEL,
+        "messages": messages,
+        "temperature": 0.2,
+        "max_tokens": 2000,
+        "top_p": 0.8
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
     }
     
     async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(url, json=payload)
+        response = await client.post(url, json=payload, headers=headers)
         
         if response.status_code != 200:
-            raise RuntimeError(f"Gemini API returned {response.status_code}")
+            raise RuntimeError(f"OpenRouter API returned {response.status_code}: {response.text}")
         
         data = response.json()
         
-        if not data.get("candidates") or not data["candidates"][0].get("content"):
-            raise RuntimeError("No valid response from Gemini")
+        if not data.get("choices") or not data["choices"][0].get("message"):
+            raise RuntimeError("No valid response from OpenRouter")
         
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return data["choices"][0]["message"]["content"].strip()
 
 async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
     """تخطيط workflow محسن مع قوالب حديثة"""
@@ -573,7 +569,7 @@ async def plan_workflow_with_ai(user_prompt: str) -> Tuple[str, bool]:
 **طلب المستخدم:**
 {user_prompt}
 
-(استخدام النظام الأساسي - للحصول على أفضل النتائج، تأكد من GEMINI_API_KEY)"""
+(استخدام النظام الأساسي - للحصول على أفضل النتائج، تأكد من OPENROUTER_API_KEY)"""
         return fallback_plan, False
 
 async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
@@ -620,20 +616,20 @@ async def draft_n8n_json_with_ai(plan: str) -> Tuple[str, bool]:
         
         return json.dumps(fallback, ensure_ascii=False, indent=2), False
 
-async def test_gemini_connection() -> Dict[str, Any]:
-    """اختبار اتصال Gemini"""
-    if not GEMINI_API_KEY:
+async def test_openrouter_connection() -> Dict[str, Any]:
+    """اختبار اتصال OpenRouter"""
+    if not OPENROUTER_API_KEY:
         return {
             "success": False,
-            "error": "GEMINI_API_KEY not configured"
+            "error": "OPENROUTER_API_KEY not configured"
         }
     
     try:
-        result = await _call_gemini_api("قل 'النظام المحسن مع n8n Cloud يعمل!'")
+        result = await _call_openrouter_api("قل 'النظام المحسن مع n8n Cloud يعمل!'")
         return {
             "success": True,
             "response": result,
-            "model": GEMINI_MODEL,
+            "model": OPENROUTER_MODEL,
             "compatibility": "n8n Cloud Ready"
         }
     except Exception as e:
@@ -665,7 +661,7 @@ def search_library_candidates(query: str, top_k: int = 3) -> List[Dict]:
 __all__ = [
     'plan_workflow_with_ai',
     'draft_n8n_json_with_ai', 
-    'test_gemini_connection',
+    'test_openrouter_connection',
     'get_available_templates',
     'get_library_stats',
     'search_library_candidates',

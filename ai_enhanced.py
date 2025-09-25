@@ -1,296 +1,496 @@
-# enhanced_ai_system.py - Advanced AI System with Internet Research
+# squirrel_framework.py - Multi-Step Reasoning System for High Accuracy
 import os, json, httpx, re, asyncio
-from typing import Dict, Any, Tuple, List, Optional
-import copy
+from typing import Dict, Any, List, Optional, Tuple
 import uuid
 from datetime import datetime
 from urllib.parse import quote
+import base64
 
 # Configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
 
-class EnhancedWorkflowGenerator:
-    """Advanced workflow generator with internet research capabilities"""
+class SquirrelFramework:
+    """Multi-step reasoning system for high-accuracy workflow generation"""
     
     def __init__(self):
-        self.search_engines = [
-            "https://www.google.com/search?q=",
-            "https://duckduckgo.com/?q="
+        # Curated GitHub repositories for examples
+        self.github_repos = [
+            "https://api.github.com/repos/enescingoz/awesome-n8n-templates/contents",
+            "https://api.github.com/repos/Zie619/n8n-workflows/contents", 
+            "https://api.github.com/repos/wassupjay/n8n-free-templates/contents"
         ]
-        self.n8n_resources = [
-            "n8n.io/workflows",
-            "github.com n8n workflow",
-            "n8n community examples",
-            "n8n automation examples"
-        ]
-    
-    async def analyze_user_request(self, user_description: str) -> Dict[str, Any]:
-        """Deep analysis of user request using AI"""
         
-        analysis_prompt = f"""
-Analyze this automation request in detail:
-"{user_description}"
+        self.workflow_cache = {}  # Cache for retrieved examples
+        
+    async def process_user_request(self, user_input: str) -> Dict[str, Any]:
+        """Main pipeline: 6-step reasoning process"""
+        
+        print(f"[SQUIRREL] Starting 6-step reasoning pipeline for: {user_input[:50]}...")
+        
+        # Step 1: Clarify User Intent
+        structured_spec = await self._step1_clarify_intent(user_input)
+        print(f"[STEP 1] Intent clarified: {structured_spec.get('trigger', 'N/A')}")
+        
+        # Step 2: Retrieve Relevant Examples
+        relevant_examples = await self._step2_retrieve_examples(structured_spec)
+        print(f"[STEP 2] Found {len(relevant_examples)} relevant examples")
+        
+        # Step 3: Plan the Workflow
+        workflow_plan = await self._step3_plan_workflow(structured_spec, relevant_examples)
+        print(f"[STEP 3] Workflow planned with {len(workflow_plan.get('nodes', []))} nodes")
+        
+        # Step 4: Generate Workflow JSON
+        workflow_json = await self._step4_generate_json(structured_spec, workflow_plan, relevant_examples)
+        print(f"[STEP 4] JSON generated ({len(str(workflow_json))} chars)")
+        
+        # Step 5: Self-Check
+        validated_workflow = await self._step5_self_check(structured_spec, workflow_json)
+        print(f"[STEP 5] Self-check completed")
+        
+        # Step 6: User Confirmation Prep (return plan for user)
+        confirmation_data = self._step6_prepare_confirmation(structured_spec, workflow_plan)
+        print(f"[STEP 6] Confirmation data prepared")
+        
+        return {
+            "structured_spec": structured_spec,
+            "relevant_examples": relevant_examples,
+            "workflow_plan": workflow_plan,
+            "workflow_json": validated_workflow,
+            "confirmation_data": confirmation_data,
+            "confidence_score": self._calculate_confidence(structured_spec, relevant_examples, workflow_plan)
+        }
+    
+    async def _step1_clarify_intent(self, user_input: str) -> Dict[str, Any]:
+        """Step 1: Clarify and restructure user intent"""
+        
+        clarification_prompt = f"""
+You are a workflow specification expert. The user gave you this request:
+"{user_input}"
 
-Extract and return JSON with:
+Rewrite this as a clear, structured specification. Extract EXACTLY what they want:
+
+Return JSON with:
 {{
-  "intent": "what user wants to achieve",
-  "trigger_type": "webhook/schedule/email/manual",
-  "services_needed": ["service1", "service2"],
-  "data_flow": "description of data transformation",
-  "business_rules": ["rule1", "rule2"],
-  "custom_requirements": {{"names": [], "fields": [], "logic": []}},
-  "complexity": "simple/medium/complex",
-  "search_keywords": ["keyword1", "keyword2"],
-  "similar_use_cases": ["use_case1", "use_case2"]
+    "trigger": "Specific trigger type and details",
+    "inputs": ["List of all input data/sources"],
+    "processing_steps": ["Step 1", "Step 2", "Step 3"],
+    "outputs": ["All outputs and destinations"],
+    "business_rules": ["Any conditions or logic"],
+    "services_needed": ["service1", "service2"],
+    "custom_requirements": {{"names": [], "formats": [], "special_logic": []}},
+    "ambiguities": ["What needs clarification?"],
+    "confidence": "high/medium/low"
+}}
+
+Be precise and identify gaps in the original request.
+"""
+        
+        if OPENROUTER_API_KEY:
+            try:
+                response = await self._call_ai(clarification_prompt)
+                return self._parse_json_response(response, fallback_key="structured_spec")
+            except Exception as e:
+                print(f"[WARNING] Step 1 AI failed: {e}")
+        
+        # Fallback analysis
+        return self._fallback_intent_analysis(user_input)
+    
+    async def _step2_retrieve_examples(self, structured_spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Step 2: Retrieve relevant examples from GitHub repos"""
+        
+        services = structured_spec.get("services_needed", [])
+        trigger = structured_spec.get("trigger", "")
+        
+        # Generate search keywords
+        search_keywords = self._extract_search_keywords(structured_spec)
+        print(f"[STEP 2] Searching with keywords: {search_keywords}")
+        
+        all_examples = []
+        
+        # Search each repository
+        for repo_url in self.github_repos:
+            try:
+                repo_examples = await self._search_github_repo(repo_url, search_keywords)
+                all_examples.extend(repo_examples)
+                await asyncio.sleep(0.5)  # Rate limiting
+            except Exception as e:
+                print(f"[WARNING] Failed to search repo {repo_url}: {e}")
+        
+        # Rank and filter examples
+        relevant_examples = self._rank_examples(all_examples, structured_spec)
+        
+        return relevant_examples[:5]  # Top 5 most relevant
+    
+    async def _step3_plan_workflow(self, structured_spec: Dict[str, Any], examples: List[Dict]) -> Dict[str, Any]:
+        """Step 3: Create detailed workflow plan"""
+        
+        examples_context = "\n".join([
+            f"Example {i+1}: {ex.get('name', 'Unknown')}\n{ex.get('description', 'No description')[:200]}"
+            for i, ex in enumerate(examples[:3])
+        ])
+        
+        planning_prompt = f"""
+Based on this specification and examples, create a detailed workflow plan:
+
+SPECIFICATION:
+{json.dumps(structured_spec, ensure_ascii=False, indent=2)}
+
+RELEVANT EXAMPLES:
+{examples_context}
+
+Create a high-level plan as JSON:
+{{
+    "workflow_name": "Descriptive name",
+    "nodes": [
+        {{
+            "node_name": "Node 1 Name",
+            "node_type": "n8n-nodes-base.webhook",
+            "purpose": "What this node does",
+            "parameters": {{"key": "value"}},
+            "position": [240, 300]
+        }}
+    ],
+    "data_flow": "Describe how data flows between nodes",
+    "error_handling": "How errors are handled",
+    "validation_checks": ["Check 1", "Check 2"],
+    "missing_elements": ["What might be missing?"]
+}}
+
+Focus on n8n node types and realistic parameters.
+"""
+        
+        if OPENROUTER_API_KEY:
+            try:
+                response = await self._call_ai(planning_prompt)
+                return self._parse_json_response(response, fallback_key="workflow_plan")
+            except Exception as e:
+                print(f"[WARNING] Step 3 AI failed: {e}")
+        
+        # Fallback planning
+        return self._fallback_workflow_plan(structured_spec)
+    
+    async def _step4_generate_json(self, spec: Dict, plan: Dict, examples: List[Dict]) -> Dict[str, Any]:
+        """Step 4: Generate actual n8n workflow JSON"""
+        
+        # Find the most relevant example
+        best_example = examples[0] if examples else None
+        example_json = ""
+        
+        if best_example and 'content' in best_example:
+            example_json = f"\nREFERENCE EXAMPLE:\n{best_example['content'][:1000]}..."
+        
+        generation_prompt = f"""
+Generate a complete n8n workflow JSON based on this plan:
+
+SPECIFICATION:
+{json.dumps(spec, ensure_ascii=False, indent=2)}
+
+WORKFLOW PLAN:
+{json.dumps(plan, ensure_ascii=False, indent=2)}
+
+{example_json}
+
+Create a complete n8n Cloud-compatible JSON workflow with:
+- meta object with templateCreatedBy and instanceId
+- nodes array with proper IDs and parameters
+- connections object linking nodes
+- All required fields: active, settings, versionId, id, name, tags, etc.
+
+Generate ONLY valid JSON. Use modern node versions and proper n8n format.
+"""
+        
+        if OPENROUTER_API_KEY:
+            try:
+                response = await self._call_ai(generation_prompt)
+                return self._parse_json_response(response, fallback_key="workflow")
+            except Exception as e:
+                print(f"[WARNING] Step 4 AI failed: {e}")
+        
+        # Fallback generation
+        return self._fallback_workflow_generation(spec, plan)
+    
+    async def _step5_self_check(self, spec: Dict, workflow: Dict) -> Dict[str, Any]:
+        """Step 5: Self-validation and error correction"""
+        
+        validation_prompt = f"""
+Review this n8n workflow against the original specification:
+
+ORIGINAL SPECIFICATION:
+{json.dumps(spec, ensure_ascii=False, indent=2)}
+
+GENERATED WORKFLOW:
+{json.dumps(workflow, ensure_ascii=False, indent=2)[:2000]}...
+
+Check:
+1. Does it satisfy all requirements from the specification?
+2. Are all nodes properly connected?
+3. Are node types and parameters correct for n8n?
+4. Is the JSON structure valid for n8n Cloud?
+5. Are there any missing or incorrect elements?
+
+If issues found, return corrected workflow. Otherwise, return the original.
+
+Return JSON:
+{{
+    "validation_passed": true/false,
+    "issues_found": ["Issue 1", "Issue 2"],
+    "corrected_workflow": {{...}} or null,
+    "confidence_score": 0-100
 }}
 """
         
         if OPENROUTER_API_KEY:
             try:
-                response = await self._call_openrouter_api(analysis_prompt)
-                return self._parse_json_response(response)
+                response = await self._call_ai(validation_prompt)
+                validation_result = self._parse_json_response(response, fallback_key="validation")
+                
+                if validation_result.get("corrected_workflow"):
+                    return validation_result["corrected_workflow"]
+                elif validation_result.get("validation_passed", True):
+                    return workflow
+                else:
+                    # Apply basic fixes
+                    return self._apply_basic_fixes(workflow)
+                    
             except Exception as e:
-                print(f"[WARNING] AI analysis failed: {e}")
+                print(f"[WARNING] Step 5 AI failed: {e}")
         
-        return self._fallback_analysis(user_description)
+        # Fallback validation
+        return self._basic_workflow_validation(workflow)
     
-    async def research_automation_examples(self, analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Research internet for similar automation examples"""
+    def _step6_prepare_confirmation(self, spec: Dict, plan: Dict) -> Dict[str, Any]:
+        """Step 6: Prepare user confirmation data"""
         
-        search_queries = self._generate_search_queries(analysis)
-        research_results = []
-        
-        for query in search_queries[:3]:  # Limit to 3 searches
-            try:
-                results = await self._search_internet(query)
-                research_results.extend(results)
-                await asyncio.sleep(1)  # Rate limiting
-            except Exception as e:
-                print(f"[WARNING] Search failed for '{query}': {e}")
-        
-        # Filter and rank results
-        return self._filter_relevant_results(research_results, analysis)
+        return {
+            "summary": f"Workflow: {plan.get('workflow_name', 'Custom Automation')}",
+            "trigger_description": spec.get("trigger", "Unknown trigger"),
+            "main_actions": spec.get("processing_steps", []),
+            "outputs": spec.get("outputs", []),
+            "services_used": spec.get("services_needed", []),
+            "node_count": len(plan.get("nodes", [])),
+            "complexity": "high" if len(plan.get("nodes", [])) > 5 else "medium"
+        }
     
-    async def generate_custom_workflow(self, analysis: Dict[str, Any], research_results: List[Dict]) -> Dict[str, Any]:
-        """Generate custom n8n workflow based on analysis and research"""
-        
-        # Create generation prompt with research context
-        generation_prompt = self._build_generation_prompt(analysis, research_results)
-        
-        if OPENROUTER_API_KEY:
-            try:
-                workflow_json = await self._call_openrouter_api(generation_prompt)
-                return self._parse_workflow_json(workflow_json)
-            except Exception as e:
-                print(f"[WARNING] AI generation failed: {e}")
-        
-        # Fallback to template-based generation
-        return self._generate_from_template(analysis)
-    
-    def _generate_search_queries(self, analysis: Dict[str, Any]) -> List[str]:
-        """Generate targeted search queries"""
-        
-        base_keywords = analysis.get("search_keywords", [])
-        services = analysis.get("services_needed", [])
-        intent = analysis.get("intent", "")
-        
-        queries = []
-        
-        # n8n specific searches
-        queries.extend([
-            f"n8n workflow {' '.join(base_keywords[:2])}",
-            f"n8n automation {intent[:50]}",
-            f"n8n {' '.join(services[:2])} integration example"
-        ])
-        
-        # General automation searches
-        queries.extend([
-            f"automation workflow {' '.join(base_keywords[:3])}",
-            f"zapier workflow {intent[:50]}",
-            f"{' '.join(services)} automation tutorial"
-        ])
-        
-        return queries[:5]
-    
-    async def _search_internet(self, query: str) -> List[Dict[str, Any]]:
-        """Search internet for automation examples"""
-        
-        # Use DuckDuckGo API or similar search service
-        search_url = f"https://api.duckduckgo.com/?q={quote(query)}&format=json&no_redirect=1&no_html=1"
+    async def _search_github_repo(self, repo_url: str, keywords: List[str]) -> List[Dict[str, Any]]:
+        """Search GitHub repository for relevant workflows"""
         
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.get(search_url)
+            async with httpx.AsyncClient(timeout=15) as client:
+                headers = {"Accept": "application/vnd.github.v3+json"}
+                
+                # Add GitHub token if available
+                github_token = os.getenv("GITHUB_TOKEN")
+                if github_token:
+                    headers["Authorization"] = f"token {github_token}"
+                
+                response = await client.get(repo_url, headers=headers)
                 
                 if response.status_code == 200:
-                    data = response.json()
-                    results = []
+                    files = response.json()
+                    relevant_files = []
                     
-                    # Parse search results
-                    for item in data.get("RelatedTopics", [])[:5]:
-                        if "Text" in item and "FirstURL" in item:
-                            results.append({
-                                "title": item.get("Text", "")[:100],
-                                "url": item.get("FirstURL", ""),
-                                "snippet": item.get("Text", "")[:300],
-                                "relevance_score": 0.5
-                            })
+                    for file in files:
+                        if file.get("name", "").endswith(".json"):
+                            # Check if filename matches keywords
+                            filename = file.get("name", "").lower()
+                            if any(keyword.lower() in filename for keyword in keywords):
+                                
+                                # Get file content
+                                try:
+                                    file_content = await self._get_file_content(file.get("download_url", ""))
+                                    relevant_files.append({
+                                        "name": file.get("name"),
+                                        "path": file.get("path"),
+                                        "url": file.get("html_url"),
+                                        "content": file_content,
+                                        "repo": repo_url,
+                                        "relevance_score": 0
+                                    })
+                                except Exception as e:
+                                    print(f"[WARNING] Failed to get file content: {e}")
                     
-                    return results
-                
+                    return relevant_files[:10]  # Limit to 10 files per repo
+                    
         except Exception as e:
-            print(f"[ERROR] Search request failed: {e}")
+            print(f"[ERROR] GitHub search failed: {e}")
         
         return []
     
-    def _filter_relevant_results(self, results: List[Dict], analysis: Dict) -> List[Dict]:
-        """Filter and rank search results by relevance"""
+    async def _get_file_content(self, download_url: str) -> str:
+        """Get file content from GitHub"""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get(download_url)
+                if response.status_code == 200:
+                    return response.text[:5000]  # Limit content size
+        except Exception as e:
+            print(f"[WARNING] Failed to download file: {e}")
+        return ""
+    
+    def _extract_search_keywords(self, spec: Dict) -> List[str]:
+        """Extract relevant keywords for searching"""
+        keywords = []
         
-        keywords = analysis.get("search_keywords", [])
-        services = analysis.get("services_needed", [])
+        # From trigger
+        trigger = spec.get("trigger", "")
+        if "webhook" in trigger.lower():
+            keywords.append("webhook")
+        if "schedule" in trigger.lower() or "cron" in trigger.lower():
+            keywords.append("schedule")
+        if "email" in trigger.lower():
+            keywords.append("email")
         
-        filtered_results = []
+        # From services
+        services = spec.get("services_needed", [])
+        keywords.extend(services)
         
-        for result in results:
-            text = (result.get("title", "") + " " + result.get("snippet", "")).lower()
-            
-            # Calculate relevance score
+        # From processing steps
+        steps = " ".join(spec.get("processing_steps", [])).lower()
+        if "sheet" in steps or "google" in steps:
+            keywords.append("sheets")
+        if "slack" in steps:
+            keywords.append("slack")
+        if "email" in steps or "gmail" in steps:
+            keywords.append("email")
+        
+        return list(set(keywords))  # Remove duplicates
+    
+    def _rank_examples(self, examples: List[Dict], spec: Dict) -> List[Dict]:
+        """Rank examples by relevance to specification"""
+        
+        spec_text = json.dumps(spec, ensure_ascii=False).lower()
+        keywords = spec.get("services_needed", []) + self._extract_search_keywords(spec)
+        
+        for example in examples:
             score = 0
-            for keyword in keywords:
-                if keyword.lower() in text:
-                    score += 2
+            example_text = (example.get("name", "") + " " + example.get("content", "")).lower()
             
-            for service in services:
-                if service.lower() in text:
+            # Keyword matching
+            for keyword in keywords:
+                if keyword.lower() in example_text:
                     score += 3
             
-            if "n8n" in text:
-                score += 5
-            if "workflow" in text:
+            # Service matching
+            for service in spec.get("services_needed", []):
+                if service.lower() in example_text:
+                    score += 5
+            
+            # Trigger matching
+            trigger = spec.get("trigger", "").lower()
+            if any(word in example_text for word in trigger.split()):
                 score += 2
             
-            result["relevance_score"] = score
-            
-            if score > 2:  # Only keep relevant results
-                filtered_results.append(result)
+            example["relevance_score"] = score
         
-        # Sort by relevance and return top 5
-        return sorted(filtered_results, key=lambda x: x["relevance_score"], reverse=True)[:5]
+        # Sort by relevance score
+        return sorted(examples, key=lambda x: x.get("relevance_score", 0), reverse=True)
     
-    def _build_generation_prompt(self, analysis: Dict, research: List[Dict]) -> str:
-        """Build comprehensive prompt for workflow generation"""
+    def _calculate_confidence(self, spec: Dict, examples: List, plan: Dict) -> int:
+        """Calculate confidence score for the generated workflow"""
         
-        research_context = ""
-        if research:
-            research_context = "\n".join([
-                f"- {r.get('title', '')}: {r.get('snippet', '')[:200]}"
-                for r in research[:3]
-            ])
+        confidence = 50  # Base confidence
         
-        prompt = f"""
-Generate a complete n8n workflow JSON based on this analysis and research:
-
-USER REQUEST ANALYSIS:
-{json.dumps(analysis, ensure_ascii=False, indent=2)}
-
-RESEARCH FINDINGS:
-{research_context}
-
-Create a complete n8n Cloud compatible workflow JSON that:
-1. Implements the exact user requirements
-2. Uses modern n8n node versions
-3. Includes proper error handling
-4. Has descriptive node names
-5. Uses the patterns found in research when applicable
-
-The workflow must be a valid JSON with these required fields:
-- meta, nodes, connections, active, settings, versionId, id, name, tags, pinData, staticData, createdAt, updatedAt, triggerCount
-
-Generate ONLY valid JSON, no explanations.
-"""
+        # Boost confidence based on factors
+        if spec.get("confidence") == "high":
+            confidence += 20
+        elif spec.get("confidence") == "medium":
+            confidence += 10
         
-        return prompt
+        if examples:
+            confidence += min(len(examples) * 5, 25)  # Up to 25 points for examples
+        
+        if plan.get("nodes") and len(plan["nodes"]) > 0:
+            confidence += 15
+        
+        if not spec.get("ambiguities"):
+            confidence += 10
+        
+        return min(confidence, 100)
     
-    def _parse_workflow_json(self, response: str) -> Dict[str, Any]:
-        """Parse AI response to extract workflow JSON"""
+    # Fallback methods
+    def _fallback_intent_analysis(self, user_input: str) -> Dict[str, Any]:
+        """Fallback intent analysis without AI"""
+        text = user_input.lower()
         
-        # Try to extract JSON from response
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            try:
-                workflow = json.loads(json_match.group())
-                return self._validate_and_enhance_workflow(workflow)
-            except Exception as e:
-                print(f"[WARNING] JSON parsing failed: {e}")
+        # Detect trigger
+        trigger = "webhook"
+        if any(word in text for word in ["schedule", "every", "daily", "weekly"]):
+            trigger = "schedule"
+        elif any(word in text for word in ["email", "mail"]):
+            trigger = "email"
         
-        # Fallback
-        return self._create_basic_workflow()
+        # Detect services
+        services = []
+        if "sheet" in text or "google" in text:
+            services.append("google-sheets")
+        if "slack" in text:
+            services.append("slack")
+        if "email" in text or "gmail" in text:
+            services.append("gmail")
+        
+        return {
+            "trigger": f"{trigger} trigger",
+            "inputs": ["form data", "user input"],
+            "processing_steps": ["receive data", "process data", "send output"],
+            "outputs": ["notification", "data storage"],
+            "business_rules": [],
+            "services_needed": services or ["webhook"],
+            "custom_requirements": {},
+            "ambiguities": [],
+            "confidence": "medium"
+        }
     
-    def _validate_and_enhance_workflow(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and enhance generated workflow"""
-        
-        # Ensure required fields
-        workflow.setdefault("meta", {
-            "templateCreatedBy": "Enhanced AI Bot with Internet Research",
-            "instanceId": str(uuid.uuid4())
-        })
-        
-        workflow.setdefault("active", True)
-        workflow.setdefault("connections", {})
-        workflow.setdefault("createdAt", datetime.now().isoformat())
-        workflow["updatedAt"] = datetime.now().isoformat()
-        workflow.setdefault("id", str(uuid.uuid4()))
-        workflow.setdefault("nodes", [])
-        workflow.setdefault("pinData", {})
-        workflow.setdefault("settings", {"executionOrder": "v1"})
-        workflow.setdefault("staticData", {})
-        workflow.setdefault("tags", [])
-        workflow.setdefault("triggerCount", 1)
-        workflow.setdefault("versionId", str(uuid.uuid4()))
-        
-        # Validate nodes
-        for node in workflow.get("nodes", []):
-            if not node.get("id"):
-                node["id"] = str(uuid.uuid4())
-            node.setdefault("parameters", {})
-            node.setdefault("position", [240, 300])
-            node.setdefault("typeVersion", 1)
-        
-        return workflow
+    def _fallback_workflow_plan(self, spec: Dict) -> Dict[str, Any]:
+        """Fallback workflow planning"""
+        return {
+            "workflow_name": "Custom Automation",
+            "nodes": [
+                {
+                    "node_name": "Trigger",
+                    "node_type": "n8n-nodes-base.webhook",
+                    "purpose": "Receive data",
+                    "parameters": {"httpMethod": "POST"},
+                    "position": [240, 300]
+                },
+                {
+                    "node_name": "Process Data",
+                    "node_type": "n8n-nodes-base.set",
+                    "purpose": "Process incoming data",
+                    "parameters": {},
+                    "position": [460, 300]
+                }
+            ],
+            "data_flow": "Data flows from trigger to processing",
+            "error_handling": "Basic error handling",
+            "validation_checks": ["Check data format"],
+            "missing_elements": []
+        }
     
-    def _create_basic_workflow(self) -> Dict[str, Any]:
-        """Create basic workflow as fallback"""
+    def _fallback_workflow_generation(self, spec: Dict, plan: Dict) -> Dict[str, Any]:
+        """Fallback workflow generation"""
         
         webhook_id = str(uuid.uuid4())
         process_id = str(uuid.uuid4())
         
         return {
             "meta": {
-                "templateCreatedBy": "Enhanced AI Bot (Fallback)",
+                "templateCreatedBy": "Squirrel Framework Fallback",
                 "instanceId": str(uuid.uuid4())
             },
             "active": True,
             "connections": {
                 webhook_id: {
-                    "main": [[{
-                        "node": process_id,
-                        "type": "main",
-                        "index": 0
-                    }]]
+                    "main": [[{"node": process_id, "type": "main", "index": 0}]]
                 }
             },
             "createdAt": datetime.now().isoformat(),
             "updatedAt": datetime.now().isoformat(),
             "id": str(uuid.uuid4()),
-            "name": "Custom Automation Workflow",
+            "name": plan.get("workflow_name", "Custom Automation"),
             "nodes": [
                 {
-                    "parameters": {
-                        "httpMethod": "POST",
-                        "path": "automation",
-                        "responseMode": "onReceived"
-                    },
+                    "parameters": {"httpMethod": "POST", "path": "automation"},
                     "id": webhook_id,
                     "name": "Automation Trigger",
                     "type": "n8n-nodes-base.webhook",
@@ -299,14 +499,7 @@ Generate ONLY valid JSON, no explanations.
                     "webhookId": webhook_id
                 },
                 {
-                    "parameters": {
-                        "values": {
-                            "string": [{
-                                "name": "processed_at",
-                                "value": "={{ new Date().toISOString() }}"
-                            }]
-                        }
-                    },
+                    "parameters": {"values": {"string": [{"name": "processed", "value": "true"}]}},
                     "id": process_id,
                     "name": "Process Data",
                     "type": "n8n-nodes-base.set",
@@ -317,66 +510,38 @@ Generate ONLY valid JSON, no explanations.
             "pinData": {},
             "settings": {"executionOrder": "v1"},
             "staticData": {},
-            "tags": [{
-                "createdAt": datetime.now().isoformat(),
-                "updatedAt": datetime.now().isoformat(),
-                "id": str(uuid.uuid4()),
-                "name": "custom"
-            }],
+            "tags": [],
             "triggerCount": 1,
             "versionId": str(uuid.uuid4())
         }
     
-    def _fallback_analysis(self, user_description: str) -> Dict[str, Any]:
-        """Fallback analysis without AI"""
+    def _basic_workflow_validation(self, workflow: Dict) -> Dict[str, Any]:
+        """Basic workflow validation and fixes"""
         
-        text = user_description.lower()
+        # Ensure required fields
+        workflow.setdefault("meta", {"templateCreatedBy": "Squirrel Framework"})
+        workflow.setdefault("active", True)
+        workflow.setdefault("connections", {})
+        workflow.setdefault("id", str(uuid.uuid4()))
+        workflow.setdefault("nodes", [])
+        workflow.setdefault("settings", {"executionOrder": "v1"})
+        workflow.setdefault("versionId", str(uuid.uuid4()))
         
-        # Extract services
-        services = []
-        service_mapping = {
-            "sheets": "google-sheets",
-            "gmail": "gmail",
-            "slack": "slack",
-            "discord": "discord",
-            "webhook": "webhook",
-            "api": "http-request"
-        }
+        # Fix nodes
+        for node in workflow.get("nodes", []):
+            if not node.get("id"):
+                node["id"] = str(uuid.uuid4())
+            node.setdefault("parameters", {})
+            node.setdefault("position", [240, 300])
         
-        for keyword, service in service_mapping.items():
-            if keyword in text:
-                services.append(service)
-        
-        # Determine trigger
-        trigger = "webhook"
-        if any(word in text for word in ["schedule", "daily", "hourly", "time"]):
-            trigger = "schedule"
-        elif any(word in text for word in ["email", "mail"]):
-            trigger = "email"
-        
-        # Generate search keywords
-        keywords = []
-        words = re.findall(r'\b\w+\b', text)
-        keywords = [w for w in words if len(w) > 3 and w not in ["when", "then", "with", "from", "this", "that"]][:5]
-        
-        return {
-            "intent": user_description[:100],
-            "trigger_type": trigger,
-            "services_needed": services or ["webhook"],
-            "data_flow": "Basic data processing",
-            "business_rules": [],
-            "custom_requirements": {},
-            "complexity": "medium",
-            "search_keywords": keywords,
-            "similar_use_cases": []
-        }
+        return workflow
     
-    def _generate_from_template(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate workflow from templates"""
-        return self._create_basic_workflow()
+    def _apply_basic_fixes(self, workflow: Dict) -> Dict[str, Any]:
+        """Apply basic fixes to workflow"""
+        return self._basic_workflow_validation(workflow)
     
-    async def _call_openrouter_api(self, prompt: str) -> str:
-        """Call OpenRouter API"""
+    async def _call_ai(self, prompt: str) -> str:
+        """Call AI API"""
         if not OPENROUTER_API_KEY:
             raise RuntimeError("OPENROUTER_API_KEY not configured")
         
@@ -385,7 +550,7 @@ Generate ONLY valid JSON, no explanations.
         payload = {
             "model": OPENROUTER_MODEL,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.3,
+            "temperature": 0.2,
             "max_tokens": 4000
         }
         
@@ -403,78 +568,17 @@ Generate ONLY valid JSON, no explanations.
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
     
-    def _parse_json_response(self, response: str) -> Dict[str, Any]:
+    def _parse_json_response(self, response: str, fallback_key: str = "result") -> Dict[str, Any]:
         """Parse JSON from AI response"""
         json_match = re.search(r'\{.*\}', response, re.DOTALL)
         if json_match:
             try:
                 return json.loads(json_match.group())
-            except:
+            except json.JSONDecodeError:
                 pass
         
-        return {}
+        # Fallback
+        return {fallback_key: response}
 
-# Main functions for integration
-async def enhanced_workflow_planning(user_description: str) -> Tuple[str, Dict[str, Any], List[Dict]]:
-    """Enhanced workflow planning with internet research"""
-    
-    generator = EnhancedWorkflowGenerator()
-    
-    # 1. Analyze user request
-    analysis = await generator.analyze_user_request(user_description)
-    
-    # 2. Research similar examples
-    research_results = await generator.research_automation_examples(analysis)
-    
-    # 3. Create comprehensive plan
-    plan_parts = [
-        "🔍 **تحليل متقدم مع بحث إنترنت:**",
-        "",
-        f"**الهدف:** {analysis.get('intent', 'غير محدد')}",
-        f"**المشغل:** {analysis.get('trigger_type', 'webhook')}",
-        f"**الخدمات:** {', '.join(analysis.get('services_needed', []))}",
-        f"**التعقيد:** {analysis.get('complexity', 'متوسط')}",
-        ""
-    ]
-    
-    if analysis.get('business_rules'):
-        plan_parts.extend([
-            "**قواعد العمل:**",
-            "\n".join([f"• {rule}" for rule in analysis['business_rules']]),
-            ""
-        ])
-    
-    if research_results:
-        plan_parts.extend([
-            f"**أمثلة مشابهة وُجدت ({len(research_results)}):**"
-        ])
-        
-        for i, result in enumerate(research_results[:3], 1):
-            plan_parts.append(f"{i}. {result.get('title', 'مثال')[:80]}...")
-        
-        plan_parts.append("")
-    
-    plan_parts.extend([
-        "**البيانات المطلوبة:**",
-        json.dumps(analysis.get('custom_requirements', {}), ensure_ascii=False, indent=2),
-        "",
-        "**الوصف الأصلي:**",
-        user_description
-    ])
-    
-    return "\n".join(plan_parts), analysis, research_results
-
-async def enhanced_workflow_generation(analysis: Dict[str, Any], research_results: List[Dict]) -> Dict[str, Any]:
-    """Generate workflow using analysis and research"""
-    
-    generator = EnhancedWorkflowGenerator()
-    workflow = await generator.generate_custom_workflow(analysis, research_results)
-    
-    return workflow
-
-# Export functions
-__all__ = [
-    'enhanced_workflow_planning',
-    'enhanced_workflow_generation',
-    'EnhancedWorkflowGenerator'
-]
+# Export the framework
+__all__ = ['SquirrelFramework']
